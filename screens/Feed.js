@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
-import { UserPlus, Settings, Menu } from 'lucide-react-native';
+import { UserPlus, Plus,  Settings, Menu } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { supabase } from '../services/supabase';
 
@@ -109,7 +109,7 @@ export default function Feed({ navigation }) {
 
     loadUser();
   }, []);
-  console.log('User profile:', profile);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -122,6 +122,13 @@ export default function Feed({ navigation }) {
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate('CreatePost')}
+            style={styles.headerButton}
+          >
+            <Plus color="rgba(255,255,255,0.7)" size={20} />
+          </TouchableOpacity>
+
           <TouchableOpacity 
             onPress={() => navigation.navigate('AddFriends')}
             style={styles.headerButton}
