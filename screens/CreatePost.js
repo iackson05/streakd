@@ -101,18 +101,34 @@ export default function CreatePostScreen({ navigation, route }) {
   const handlePost = async () => {
     if (!photo || !selectedGoal) return;
 
-
-    console.log('📸 Photo URI:', photo.uri); // <-- Add this
-    console.log('🎯 Selected Goal:', selectedGoal.title);
-
     setUploading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      // TODO: Upload image to Supabase Storage
-      // For now, we'll just store the local URI (you'll need to implement storage)
-      // const imageUrl = await uploadImageToStorage(photo.uri);
+      // Upload photo to Supabase Storage
+      const filename = user.id + '/' + Date.now() + '.jpg';
+      const formdata = new FormData();
+      formdata.append('file', {
+        uri: photo.uri,
+        name: filename,
+        type: 'image/jpeg',
+      });
+      
+      const { data: uploadData, error: uploadError } = await supabase
+        .storage
+        .from('post-images')
+        .upload(filename, formdata, {
+            contentType: 'image/jpeg',
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+        const { data: { publicUrl }, error: urlError } = supabase
+            .storage
+            .from('post-images')
+            .getPublicUrl(filename);
 
       // Create post in database
       const { data, error } = await supabase
