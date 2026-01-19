@@ -8,22 +8,25 @@ import GoalFeed from './screens/GoalFeed';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import CreatePost from './screens/CreatePost';
+import { AuthProvider } from './contexts/AuthContext';
 
 const Stack = createStackNavigator();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="Feed" component={Feed} />
-        <Stack.Screen name="Profile" component={Profile} />
-        <Stack.Screen name="Settings" component={Settings} />
-        <Stack.Screen name="AddFriends" component={AddFriends} />
-        <Stack.Screen name="GoalFeed" component={GoalFeed} />
-        <Stack.Screen name="CreatePost" component={CreatePost} options={{ headerShown: false }} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <AuthProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="Feed" component={Feed} />
+          <Stack.Screen name="Profile" component={Profile} />
+          <Stack.Screen name="Settings" component={Settings} />
+          <Stack.Screen name="AddFriends" component={AddFriends} />
+          <Stack.Screen name="GoalFeed" component={GoalFeed} />
+          <Stack.Screen name="CreatePost" component={CreatePost} options={{ headerShown: false }} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 }

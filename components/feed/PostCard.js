@@ -29,10 +29,6 @@ export default function PostCard({ post }) {
             resizeMode="cover"
           />
           
-          {/* Gradient Overlay - simulated with Views */}
-          <View style={styles.gradientTop} />
-          <View style={styles.gradientBottom} />
-          
           {/* Top - Username & Goal */}
           <View style={styles.topSection}>
             <Image
@@ -107,22 +103,6 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
-  },
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-  },
-  gradientBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   topSection: {
     position: 'absolute',
