@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -34,6 +35,8 @@ export default function Profile({ navigation }) {
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState('');
   const [newGoalDescription, setNewGoalDescription] = useState('');
+  const [streakInterval, setStreakInterval] = useState(1);
+  const [goalPrivacy, setGoalPrivacy] = useState('friends');
   const [creatingGoal, setCreatingGoal] = useState(false);
 
   useEffect(() => {
@@ -121,6 +124,12 @@ export default function Profile({ navigation }) {
     return streak;
   };
 
+  const getStreakText = (days) => {
+    if (days === 1) return 'Every day';
+    if (days === 7) return 'Once a week';
+    return `Every ${days} days`;
+  };
+
   const handleCreateGoal = async () => {
     if (!newGoalTitle.trim()) {
       Alert.alert('Missing Title', 'Please enter a goal title');
@@ -136,7 +145,9 @@ export default function Profile({ navigation }) {
           user_id: user.id,
           title: newGoalTitle.trim(),
           description: newGoalDescription.trim() || null,
-          privacy: 'friends',
+          privacy: goalPrivacy,
+          streak_interval: streakInterval,
+          streak_count: 0,
           completed: false,
           created_at: new Date().toISOString(),
         })
@@ -157,6 +168,8 @@ export default function Profile({ navigation }) {
       // Reset form and close modal
       setNewGoalTitle('');
       setNewGoalDescription('');
+      setStreakInterval(1);
+      setGoalPrivacy('friends');
       setShowCreateGoal(false);
 
       Alert.alert('Success!', 'Goal created');
@@ -301,7 +314,7 @@ export default function Profile({ navigation }) {
       <Modal
         visible={showCreateGoal}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowCreateGoal(false)}
       >
         <KeyboardAvoidingView 
@@ -324,47 +337,115 @@ export default function Profile({ navigation }) {
             </View>
 
             {/* Form */}
-            <View style={styles.modalForm}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Title *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g., Daily Workout"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  value={newGoalTitle}
-                  onChangeText={setNewGoalTitle}
-                  autoFocus
-                  editable={!creatingGoal}
-                />
-              </View>
+            <ScrollView style={styles.modalScroll}>
+              <View style={styles.modalForm}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Goal Title</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="e.g., 100 Days of Code"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={newGoalTitle}
+                    onChangeText={setNewGoalTitle}
+                    maxLength={50}
+                    editable={!creatingGoal}
+                  />
+                </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Description (optional)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="What do you want to achieve?"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  value={newGoalDescription}
-                  onChangeText={setNewGoalDescription}
-                  multiline
-                  numberOfLines={3}
-                  editable={!creatingGoal}
-                />
-              </View>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Description (Optional)</Text>
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    placeholder="What are you working towards?"
+                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    value={newGoalDescription}
+                    onChangeText={setNewGoalDescription}
+                    multiline
+                    numberOfLines={3}
+                    maxLength={200}
+                    editable={!creatingGoal}
+                  />
+                </View>
 
-              {/* Create Button */}
-              <TouchableOpacity
-                style={[styles.createButton, creatingGoal && styles.createButtonDisabled]}
-                onPress={handleCreateGoal}
-                disabled={creatingGoal}
-              >
-                {creatingGoal ? (
-                  <ActivityIndicator color="#000" />
-                ) : (
-                  <Text style={styles.createButtonText}>Create Goal</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                {/* Streak Interval Slider */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Post Frequency</Text>
+                  <Text style={styles.streakValue}>{getStreakText(streakInterval)}</Text>
+                  <Slider
+                    style={styles.slider}
+                    minimumValue={1}
+                    maximumValue={7}
+                    step={1}
+                    value={streakInterval}
+                    onValueChange={setStreakInterval}
+                    minimumTrackTintColor="rgba(255,255,255,0.8)"
+                    maximumTrackTintColor="rgba(255,255,255,0.2)"
+                    thumbTintColor="#fff"
+                    disabled={creatingGoal}
+                  />
+                  <View style={styles.sliderLabels}>
+                    <Text style={styles.sliderLabel}>1 day</Text>
+                    <Text style={styles.sliderLabel}>7 days</Text>
+                  </View>
+                </View>
+
+                {/* Privacy Options */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Privacy</Text>
+                  
+                  <TouchableOpacity
+                    style={[
+                      styles.privacyOption,
+                      goalPrivacy === 'friends' && styles.privacyOptionActive
+                    ]}
+                    onPress={() => setGoalPrivacy('friends')}
+                    disabled={creatingGoal}
+                  >
+                    <View style={styles.privacyRadio}>
+                      {goalPrivacy === 'friends' && <View style={styles.privacyRadioInner} />}
+                    </View>
+                    <View style={styles.privacyTextContainer}>
+                      <Text style={styles.privacyTitle}>Friends</Text>
+                      <Text style={styles.privacyDescription}>
+                        Your friends can see this goal and its posts
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.privacyOption,
+                      goalPrivacy === 'private' && styles.privacyOptionActive
+                    ]}
+                    onPress={() => setGoalPrivacy('private')}
+                    disabled={creatingGoal}
+                  >
+                    <View style={styles.privacyRadio}>
+                      {goalPrivacy === 'private' && <View style={styles.privacyRadioInner} />}
+                    </View>
+                    <View style={styles.privacyTextContainer}>
+                      <Text style={styles.privacyTitle}>Private</Text>
+                      <Text style={styles.privacyDescription}>
+                        Only you can see this goal
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Create Button */}
+                <TouchableOpacity
+                  style={[styles.createButton, creatingGoal && styles.createButtonDisabled]}
+                  onPress={handleCreateGoal}
+                  disabled={creatingGoal}
+                >
+                  {creatingGoal ? (
+                    <ActivityIndicator color="#000" />
+                  ) : (
+                    <Text style={styles.createButtonText}>Create Goal</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -488,8 +569,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
     fontWeight: '500',
-    marginBottom: 16,
-    paddingHorizontal: 4,
   },
   addGoalButton: {
     width: 32,
@@ -583,7 +662,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    paddingBottom: 40,
+    maxHeight: '90%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -597,6 +676,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  modalScroll: {
+    maxHeight: 600,
   },
   modalForm: {
     padding: 20,
@@ -622,6 +704,71 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  streakValue: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  sliderLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+  },
+  privacyOption: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  privacyOptionActive: {
+    borderColor: 'rgba(255,255,255,0.4)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  privacyRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  privacyRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+  },
+  privacyTextContainer: {
+    flex: 1,
+  },
+  privacyTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  privacyDescription: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    lineHeight: 18,
   },
   createButton: {
     backgroundColor: '#fff',
