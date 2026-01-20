@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,72 +9,160 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { ArrowLeft, Search, UserPlus, Check } from 'lucide-react-native';
-
-const SUGGESTED_USERS = [
-  {
-    id: 1,
-    username: "fitness_maya",
-    name: "Maya Chen",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop",
-    goal: "Marathon Training",
-    mutualFriends: 3
-  },
-  {
-    id: 2,
-    username: "art.by.luna",
-    name: "Luna Rodriguez",
-    avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop",
-    goal: "Daily Sketches",
-    mutualFriends: 7
-  },
-  {
-    id: 3,
-    username: "mindful_dan",
-    name: "Daniel Park",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop",
-    goal: "Meditation Journey",
-    mutualFriends: 2
-  },
-  {
-    id: 4,
-    username: "chef_marcus",
-    name: "Marcus Williams",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop",
-    goal: "Master Cuisine",
-    mutualFriends: 5
-  },
-  {
-    id: 5,
-    username: "read.with.em",
-    name: "Emily Foster",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop",
-    goal: "52 Books a Year",
-    mutualFriends: 1
-  }
-];
+import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../services/supabase';
 
 export default function AddFriends({ navigation }) {
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [addedUsers, setAddedUsers] = useState(new Set());
+  const [friends, setFriends] = useState(new Set());
 
-  const filteredUsers = SUGGESTED_USERS.filter(user =>
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.username.toLowerCase().includes(searchQuery.toLowerCase())
+  useEffect(() => {
+    if (user) {
+      loadUsers();
+      loadFriends();
+    }
+  }, [user]);
+
+  const loadUsers = async () => {
+    try {
+      // Get all users except current user
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, email, profile_picture_url')
+        .neq('id', user.id)
+        .order('username', { ascending: true });
+
+      if (error) throw error;
+
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error loading users:', error);
+      Alert.alert('Error', 'Failed to load users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFriends = async () => {
+    try {
+      // TODO: Implement friends table
+      // For now, we'll store in a simple table structure:
+      // CREATE TABLE friends (
+      //   id uuid primary key default gen_random_uuid(),
+      //   user_id uuid references users(id),
+      //   friend_id uuid references users(id),
+      //   created_at timestamptz default now(),
+      //   unique(user_id, friend_id)
+      // );
+
+      const { data, error } = await supabase
+        .from('friends')
+        .select('friend_id')
+        .eq('user_id', user.id);
+
+      if (error && error.code !== '42P01') { // Ignore "table doesn't exist" error
+        throw error;
+      }
+
+      if (data) {
+        setFriends(new Set(data.map(f => f.friend_id)));
+      }
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    }
+  };
+
+  const handleAddFriend = async (friendId) => {
+    try {
+      if (friends.has(friendId)) {
+        // Remove friend
+        const { error } = await supabase
+          .from('friends')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('friend_id', friendId);
+
+        if (error) throw error;
+
+        setFriends(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(friendId);
+          return newSet;
+        });
+      } else {
+        // Add friend
+        const { error } = await supabase
+          .from('friends')
+          .insert({
+            user_id: user.id,
+            friend_id: friendId,
+            created_at: new Date().toISOString(),
+          });
+
+        if (error) throw error;
+
+        setFriends(prev => new Set([...prev, friendId]));
+      }
+    } catch (error) {
+      console.error('Error updating friend:', error);
+      
+      // If table doesn't exist, show helpful message
+      if (error.code === '42P01') {
+        Alert.alert(
+          'Friends Feature Not Set Up',
+          'You need to create the friends table in Supabase. Check the console for the SQL command.',
+        );
+        console.log(`
+CREATE TABLE friends (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id) on delete cascade,
+  friend_id uuid references users(id) on delete cascade,
+  created_at timestamptz default now(),
+  unique(user_id, friend_id)
+);
+
+-- RLS Policies
+ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own friends"
+  ON friends FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can add friends"
+  ON friends FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can remove friends"
+  ON friends FOR DELETE
+  USING (auth.uid() = user_id);
+        `);
+      } else {
+        Alert.alert('Error', 'Failed to update friend');
+      }
+    }
+  };
+
+  // Filter users by search query
+  const filteredUsers = users.filter(u =>
+    u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddFriend = (userId) => {
-    setAddedUsers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(userId)) {
-        newSet.delete(userId);
-      } else {
-        newSet.add(userId);
-      }
-      return newSet;
-    });
-  };
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,52 +192,70 @@ export default function AddFriends({ navigation }) {
             style={styles.searchIcon}
           />
           <TextInput
-            placeholder="Search by name or username..."
+            placeholder="Search by username or email..."
             placeholderTextColor="rgba(255,255,255,0.3)"
             value={searchQuery}
             onChangeText={setSearchQuery}
             style={styles.searchInput}
+            autoCapitalize="none"
           />
         </View>
 
-        {/* Suggested Users */}
-        <Text style={styles.sectionTitle}>SUGGESTED FOR YOU</Text>
+        {/* Users List */}
+        <Text style={styles.sectionTitle}>
+          {searchQuery ? 'SEARCH RESULTS' : 'ALL USERS'}
+        </Text>
         
-        {filteredUsers.map((user) => (
-          <View key={user.id} style={styles.userCard}>
-            <Image
-              source={{ uri: user.avatar }}
-              style={styles.userAvatar}
-            />
-            <View style={styles.userInfo}>
-              <Text style={styles.userName}>{user.name}</Text>
-              <Text style={styles.userUsername}>@{user.username}</Text>
-              <Text style={styles.mutualFriends}>
-                {user.mutualFriends} mutual friends
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => handleAddFriend(user.id)}
-              style={[
-                styles.addButton,
-                addedUsers.has(user.id) && styles.addButtonActive
-              ]}
-            >
-              {addedUsers.has(user.id) ? (
-                <Check color="#000" size={16} />
-              ) : (
-                <UserPlus color="rgba(255,255,255,0.7)" size={16} />
-              )}
-            </TouchableOpacity>
-          </View>
-        ))}
-
-        {filteredUsers.length === 0 && (
+        {filteredUsers.length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
               <Search color="rgba(255,255,255,0.3)" size={20} />
             </View>
-            <Text style={styles.emptyText}>No users found</Text>
+            <Text style={styles.emptyText}>
+              {searchQuery ? 'No users found' : 'No other users yet'}
+            </Text>
+          </View>
+        ) : (
+          filteredUsers.map((u) => {
+            const isFriend = friends.has(u.id);
+            
+            return (
+              <View key={u.id} style={styles.userCard}>
+                <Image
+                  source={{ 
+                    uri: u.profile_picture_url || 
+                         `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
+                  }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{u.username}</Text>
+                  <Text style={styles.userUsername}>{u.email}</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleAddFriend(u.id)}
+                  style={[
+                    styles.addButton,
+                    isFriend && styles.addButtonActive
+                  ]}
+                >
+                  {isFriend ? (
+                    <Check color="#000" size={16} />
+                  ) : (
+                    <UserPlus color="rgba(255,255,255,0.7)" size={16} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })
+        )}
+
+        {/* Friend Count */}
+        {friends.size > 0 && (
+          <View style={styles.friendCount}>
+            <Text style={styles.friendCountText}>
+              {friends.size} {friends.size === 1 ? 'friend' : 'friends'}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -161,6 +267,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -257,11 +369,6 @@ const styles = StyleSheet.create({
   userUsername: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
-    marginBottom: 2,
-  },
-  mutualFriends: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 11,
   },
   addButton: {
     width: 40,
@@ -294,5 +401,17 @@ const styles = StyleSheet.create({
   emptyText: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
+  },
+  friendCount: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  friendCountText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

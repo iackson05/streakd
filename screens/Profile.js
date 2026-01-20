@@ -136,6 +136,7 @@ export default function Profile({ navigation }) {
           user_id: user.id,
           title: newGoalTitle.trim(),
           description: newGoalDescription.trim() || null,
+          privacy: 'friends',
           completed: false,
           created_at: new Date().toISOString(),
         })
@@ -328,7 +329,7 @@ export default function Profile({ navigation }) {
                 <Text style={styles.inputLabel}>Title *</Text>
                 <TextInput
                   style={styles.input}
-                  placeholder="e.g., 100 Days of Code"
+                  placeholder="e.g., Daily Workout"
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   value={newGoalTitle}
                   onChangeText={setNewGoalTitle}
