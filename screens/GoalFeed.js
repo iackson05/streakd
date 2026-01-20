@@ -6,99 +6,90 @@ import {
   TouchableOpacity, 
   StyleSheet,
   SafeAreaView,
-  StatusBar
+  StatusBar,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
-import { ArrowLeft } from 'lucide-react-native';
+import { ArrowLeft, Plus } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
-
-const ALL_POSTS = [
-  {
-    id: 1,
-    username: "alex_codes",
-    goal: "100 Days of Code",
-    goalId: "coding",
-    dayNumber: 47,
-    image: "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=600&fit=crop",
-    caption: "Finally solved that algorithm problem! Feels good 💪",
-    timestamp: "2 hours ago",
-    likes: 12,
-    comments: 3
-  },
-  {
-    id: 2,
-    username: "fitness_maya",
-    goal: "Marathon Training",
-    goalId: "marathon",
-    dayNumber: 23,
-    image: "https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=800&h=600&fit=crop",
-    caption: "Morning run done ✅ 8 miles today, feeling stronger every day",
-    timestamp: "4 hours ago",
-    likes: 45,
-    comments: 8
-  },
-  {
-    id: 3,
-    username: "art.by.luna",
-    goal: "Daily Sketches",
-    goalId: "sketching",
-    dayNumber: 156,
-    image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=800&h=600&fit=crop",
-    caption: "Today's piece inspired by the city lights ✨ Experimenting with new color palettes",
-    timestamp: "6 hours ago",
-    likes: 89,
-    comments: 12
-  },
-  {
-    id: 7,
-    username: "alex_codes",
-    goal: "100 Days of Code",
-    goalId: "coding",
-    dayNumber: 46,
-    image: "https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=800&h=600&fit=crop",
-    caption: "Working on a new React project today. Learning so much!",
-    timestamp: "1 day ago",
-    likes: 23,
-    comments: 5
-  },
-  {
-    id: 8,
-    username: "alex_codes",
-    goal: "100 Days of Code",
-    goalId: "coding",
-    dayNumber: 45,
-    image: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=600&fit=crop",
-    caption: "Late night coding session. Building something cool 🌙",
-    timestamp: "2 days ago",
-    likes: 34,
-    comments: 7
-  },
-  {
-    id: 9,
-    username: "dev_sarah",
-    goal: "100 Days of Code",
-    goalId: "coding",
-    dayNumber: 89,
-    image: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800&h=600&fit=crop",
-    caption: "Day 89! Almost at 100 days. This journey has been incredible 🎉",
-    timestamp: "3 days ago",
-    likes: 67,
-    comments: 15
-  }
-];
+import { supabase } from '../services/supabase';
 
 export default function GoalFeed({ route, navigation }) {
-  // In React Native, route params come from navigation
-  // For now using dummy data - later you'll get: route.params.goalId
   const goalId = route?.params?.goalId;
   const goalName = route?.params?.goalName;
 
-  const filteredPosts = goalId 
-    ? ALL_POSTS.filter(post => post.goalId === goalId)
-    : ALL_POSTS;
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleBack = () => {
-    navigation.goBack();
+  useEffect(() => {
+    if (goalId) {
+      loadPosts();
+    }
+  }, [goalId]);
+
+  const loadPosts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          users!posts_user_id_fkey (
+            id,
+            username,
+            profile_picture_url
+          ),
+          goals!posts_goal_id_fkey (
+            id,
+            title
+          )
+        `)
+        .eq('goal_id', goalId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      console.log('✅ Loaded goal posts:', data);
+      setPosts(data || []);
+    } catch (error) {
+      console.error('Error loading goal posts:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadPosts();
+  };
+
+  const handleAddPost = () => {
+    // Navigate to create post with this goal pre-selected
+    navigation.navigate('CreatePost', { goalId });
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const now = new Date();
+    const posted = new Date(timestamp);
+    const diffMs = now - posted;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -107,19 +98,31 @@ export default function GoalFeed({ route, navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={handleBack}
+          onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{goalName || 'Goal Feed'}</Text>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity 
+          onPress={handleAddPost}
+          style={styles.addButton}
+        >
+          <Plus color="rgba(255,255,255,0.7)" size={20} />
+        </TouchableOpacity>
       </View>
 
       {/* Main Content */}
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#fff"
+          />
+        }
       >
         {/* Feed Title */}
         <View style={styles.titleContainer}>
@@ -127,17 +130,28 @@ export default function GoalFeed({ route, navigation }) {
             {goalName || 'Goal Posts'}
           </Text>
           <Text style={styles.subtitle}>
-            {filteredPosts.length} {filteredPosts.length === 1 ? 'post' : 'posts'}
+            {posts.length} {posts.length === 1 ? 'post' : 'posts'}
           </Text>
         </View>
 
         {/* Posts */}
-        {filteredPosts.map((post) => (
-          <PostCard key={post.id} post={post} />
-        ))}
-
-        {/* Empty State */}
-        {filteredPosts.length === 0 && (
+        {posts.length > 0 ? (
+          posts.map((post) => (
+            <PostCard 
+              key={post.id} 
+              post={{
+                id: post.id,
+                username: post.users?.username || 'Unknown',
+                goal: post.goals?.title || 'Goal',
+                image: post.image_url,
+                timestamp: formatTimestamp(post.created_at),
+                likes: 0, // TODO: Calculate from reactions
+                comments: 0, // TODO: Add when you implement comments
+              }} 
+            />
+          ))
+        ) : (
+          /* Empty State */
           <View style={styles.emptyState}>
             <View style={styles.emptyIcon}>
               <View style={styles.emptyDot} />
@@ -145,11 +159,17 @@ export default function GoalFeed({ route, navigation }) {
             <Text style={styles.emptyText}>
               No posts yet for this goal
             </Text>
+            <TouchableOpacity 
+              style={styles.emptyButton}
+              onPress={handleAddPost}
+            >
+              <Text style={styles.emptyButtonText}>Create First Post</Text>
+            </TouchableOpacity>
           </View>
         )}
 
         {/* End of Feed */}
-        {filteredPosts.length > 0 && (
+        {posts.length > 0 && (
           <View style={styles.endOfFeed}>
             <View style={styles.endIcon}>
               <View style={styles.endDot} />
@@ -168,6 +188,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -196,8 +222,15 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  headerSpacer: {
+  addButton: {
     width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollView: {
     flex: 1,
@@ -243,8 +276,20 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.3)',
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 16,
+    marginBottom: 20,
+  },
+  emptyButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  emptyButtonText: {
+    color: '#000',
     fontSize: 14,
+    fontWeight: '600',
   },
   endOfFeed: {
     alignItems: 'center',

@@ -9,8 +9,13 @@ import {
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { ArrowLeft, Settings, Target, Flame, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 
@@ -24,6 +29,12 @@ export default function Profile({ navigation }) {
     currentStreak: 0,
     totalDays: 0,
   });
+
+  // Goal creation modal state
+  const [showCreateGoal, setShowCreateGoal] = useState(false);
+  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalDescription, setNewGoalDescription] = useState('');
+  const [creatingGoal, setCreatingGoal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -64,13 +75,8 @@ export default function Profile({ navigation }) {
   };
 
   const calculateStats = (goalsData, postsData) => {
-    // Count active goals (not completed)
     const activeGoals = goalsData?.filter(g => !g.completed).length || 0;
-
-    // Calculate current streak (days with posts in a row)
     const streak = calculateStreak(postsData);
-
-    // Total days with posts
     const uniqueDays = new Set(
       postsData?.map(p => new Date(p.created_at).toDateString())
     ).size;
@@ -85,7 +91,6 @@ export default function Profile({ navigation }) {
   const calculateStreak = (postsData) => {
     if (!postsData || postsData.length === 0) return 0;
 
-    // Get unique post dates sorted newest first
     const postDates = [...new Set(
       postsData.map(p => new Date(p.created_at).toDateString())
     )].sort((a, b) => new Date(b) - new Date(a));
@@ -94,7 +99,6 @@ export default function Profile({ navigation }) {
     const today = new Date().toDateString();
     const yesterday = new Date(Date.now() - 86400000).toDateString();
 
-    // Start counting if posted today or yesterday
     if (postDates[0] !== today && postDates[0] !== yesterday) {
       return 0;
     }
@@ -115,6 +119,52 @@ export default function Profile({ navigation }) {
     }
 
     return streak;
+  };
+
+  const handleCreateGoal = async () => {
+    if (!newGoalTitle.trim()) {
+      Alert.alert('Missing Title', 'Please enter a goal title');
+      return;
+    }
+
+    setCreatingGoal(true);
+
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .insert({
+          user_id: user.id,
+          title: newGoalTitle.trim(),
+          description: newGoalDescription.trim() || null,
+          completed: false,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add new goal to state
+      setGoals([data, ...goals]);
+      
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        totalGoals: prev.totalGoals + 1,
+      }));
+
+      // Reset form and close modal
+      setNewGoalTitle('');
+      setNewGoalDescription('');
+      setShowCreateGoal(false);
+
+      Alert.alert('Success!', 'Goal created');
+    } catch (error) {
+      console.error('Error creating goal:', error);
+      Alert.alert('Error', 'Failed to create goal');
+    } finally {
+      setCreatingGoal(false);
+    }
   };
 
   const handleGoalPress = (goal) => {
@@ -194,8 +244,17 @@ export default function Profile({ navigation }) {
           </View>
         </View>
 
-        {/* Active Goals */}
-        <Text style={styles.sectionTitle}>Active Goals</Text>
+        {/* Active Goals Header with Add Button */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Active Goals</Text>
+          <TouchableOpacity 
+            style={styles.addGoalButton}
+            onPress={() => setShowCreateGoal(true)}
+          >
+            <Plus color="#fff" size={16} />
+          </TouchableOpacity>
+        </View>
+
         {goals.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No active goals</Text>
@@ -204,7 +263,6 @@ export default function Profile({ navigation }) {
         ) : (
           <View style={styles.goalsContainer}>
             {goals.filter(g => !g.completed).map((goal) => {
-              // Count posts for this goal
               const goalPosts = posts.filter(p => p.goal_id === goal.id).length;
               
               return (
@@ -237,6 +295,78 @@ export default function Profile({ navigation }) {
           <Text style={styles.activityLabel}>Total Posts</Text>
         </View>
       </ScrollView>
+
+      {/* Create Goal Modal */}
+      <Modal
+        visible={showCreateGoal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCreateGoal(false)}
+      >
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity 
+            style={styles.modalBackdrop}
+            activeOpacity={1}
+            onPress={() => setShowCreateGoal(false)}
+          />
+          
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create New Goal</Text>
+              <TouchableOpacity onPress={() => setShowCreateGoal(false)}>
+                <X color="#fff" size={24} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Form */}
+            <View style={styles.modalForm}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Title *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g., 100 Days of Code"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={newGoalTitle}
+                  onChangeText={setNewGoalTitle}
+                  autoFocus
+                  editable={!creatingGoal}
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Description (optional)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="What do you want to achieve?"
+                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  value={newGoalDescription}
+                  onChangeText={setNewGoalDescription}
+                  multiline
+                  numberOfLines={3}
+                  editable={!creatingGoal}
+                />
+              </View>
+
+              {/* Create Button */}
+              <TouchableOpacity
+                style={[styles.createButton, creatingGoal && styles.createButtonDisabled]}
+                onPress={handleCreateGoal}
+                disabled={creatingGoal}
+              >
+                {creatingGoal ? (
+                  <ActivityIndicator color="#000" />
+                ) : (
+                  <Text style={styles.createButtonText}>Create Goal</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -346,12 +476,27 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
   sectionTitle: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 16,
     paddingHorizontal: 4,
+  },
+  addGoalButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalsContainer: {
     gap: 12,
@@ -421,5 +566,75 @@ const styles = StyleSheet.create({
   activityLabel: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 14,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+  },
+  modalContent: {
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 40,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalForm: {
+    padding: 20,
+    gap: 20,
+  },
+  inputContainer: {
+    gap: 8,
+  },
+  inputLabel: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  input: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 16,
+    color: '#fff',
+    fontSize: 16,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  createButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  createButtonDisabled: {
+    opacity: 0.5,
+  },
+  createButtonText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
