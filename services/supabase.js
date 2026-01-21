@@ -17,7 +17,6 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
  */
 export const signUp = async (email, password, username) => {
   try {
-    // Step 1: Create auth user
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -25,7 +24,6 @@ export const signUp = async (email, password, username) => {
 
     if (authError) throw authError;
 
-    // Step 2: Create profile in users table
     const { error: profileError } = await supabase
       .from('users')
       .insert({

@@ -36,6 +36,26 @@ export default function Feed({ navigation }) {
 
   const loadPosts = async () => {
     try {
+      // Get user's friends (accepted only)
+      const { data: friendships, error: friendError } = await supabase
+        .from('friendships')
+        .select('user_id, friend_id')
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+        .eq('status', 'accepted');
+
+      if (friendError) throw friendError;
+
+      // Build list of friend IDs
+      const friendIds = friendships?.map(f => 
+        f.user_id === user.id ? f.friend_id : f.user_id
+      ) || [];
+
+      // Include current user in the list
+      const userIds = [user.id, ...friendIds];
+
+      console.log('Loading posts from users:', userIds);
+
+      // Get posts from friends + self, respecting privacy
       const { data, error } = await supabase
         .from('posts')
         .select(`
@@ -47,15 +67,26 @@ export default function Feed({ navigation }) {
           ),
           goals!posts_goal_id_fkey (
             id,
-            title
+            title,
+            privacy
           )
         `)
+        .in('user_id', userIds)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      console.log('✅ Loaded posts:', data);
-      setPosts(data || []);
+      // Filter out private posts from other users
+      const filteredPosts = data?.filter(post => {
+        // Always show own posts
+        if (post.user_id === user.id) return true;
+        
+        // Only show friends' posts if goal is not private
+        return post.goals?.privacy !== 'private';
+      }) || [];
+
+      console.log('✅ Loaded posts:', filteredPosts.length);
+      setPosts(filteredPosts);
     } catch (error) {
       console.error('Error loading posts:', error);
     } finally {
@@ -157,7 +188,7 @@ export default function Feed({ navigation }) {
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No posts yet</Text>
             <Text style={styles.emptySubtext}>
-              Be the first to post!
+              Add friends or create your first post!
             </Text>
           </View>
         ) : (

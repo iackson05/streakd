@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { ArrowLeft, Search, UserPlus, Check } from 'lucide-react-native';
+import { ArrowLeft, Search, UserPlus, Check, Clock, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 
@@ -21,19 +21,26 @@ export default function AddFriends({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [addedUsers, setAddedUsers] = useState(new Set());
-  const [friends, setFriends] = useState(new Set());
+  const [friendships, setFriendships] = useState(new Map()); // Map<userId, {status, sentByMe}>
 
   useEffect(() => {
     if (user) {
-      loadUsers();
-      loadFriends();
+      loadData();
     }
   }, [user]);
 
+  const loadData = async () => {
+    try {
+      await Promise.all([loadUsers(), loadFriendships()]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadUsers = async () => {
     try {
-      // Get all users except current user
       const { data, error } = await supabase
         .from('users')
         .select('id, username, email, profile_picture_url')
@@ -41,120 +48,195 @@ export default function AddFriends({ navigation }) {
         .order('username', { ascending: true });
 
       if (error) throw error;
-
       setUsers(data || []);
     } catch (error) {
       console.error('Error loading users:', error);
       Alert.alert('Error', 'Failed to load users');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const loadFriends = async () => {
+  const loadFriendships = async () => {
     try {
-      // TODO: Implement friends table
-      // For now, we'll store in a simple table structure:
-      // CREATE TABLE friends (
-      //   id uuid primary key default gen_random_uuid(),
-      //   user_id uuid references users(id),
-      //   friend_id uuid references users(id),
-      //   created_at timestamptz default now(),
-      //   unique(user_id, friend_id)
-      // );
-
+      // Get all friendships where current user is involved
       const { data, error } = await supabase
-        .from('friends')
-        .select('friend_id')
-        .eq('user_id', user.id);
+        .from('friendships')
+        .select('user_id, friend_id, status')
+        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
 
-      if (error && error.code !== '42P01') { // Ignore "table doesn't exist" error
-        throw error;
-      }
+      if (error) throw error;
 
-      if (data) {
-        setFriends(new Set(data.map(f => f.friend_id)));
-      }
+      // Build map of friendships
+      const friendshipMap = new Map();
+      data?.forEach(friendship => {
+        const otherUserId = friendship.user_id === user.id 
+          ? friendship.friend_id 
+          : friendship.user_id;
+        
+        const sentByMe = friendship.user_id === user.id;
+        
+        friendshipMap.set(otherUserId, {
+          status: friendship.status,
+          sentByMe,
+        });
+      });
+
+      setFriendships(friendshipMap);
     } catch (error) {
-      console.error('Error loading friends:', error);
+      console.error('Error loading friendships:', error);
     }
   };
 
-  const handleAddFriend = async (friendId) => {
+  const handleSendRequest = async (friendId) => {
     try {
-      if (friends.has(friendId)) {
-        // Remove friend
-        const { error } = await supabase
-          .from('friends')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('friend_id', friendId);
-
-        if (error) throw error;
-
-        setFriends(prev => {
-          const newSet = new Set(prev);
-          newSet.delete(friendId);
-          return newSet;
+      const { error } = await supabase
+        .from('friendships')
+        .insert({
+          user_id: user.id,
+          friend_id: friendId,
+          status: 'pending',
+          created_at: new Date().toISOString(),
         });
-      } else {
-        // Add friend
-        const { error } = await supabase
-          .from('friends')
-          .insert({
-            user_id: user.id,
-            friend_id: friendId,
-            created_at: new Date().toISOString(),
-          });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        setFriends(prev => new Set([...prev, friendId]));
-      }
+      // Update local state
+      setFriendships(prev => new Map(prev).set(friendId, {
+        status: 'pending',
+        sentByMe: true,
+      }));
+
+      Alert.alert('Success', 'Friend request sent!');
     } catch (error) {
-      console.error('Error updating friend:', error);
-      
-      // If table doesn't exist, show helpful message
-      if (error.code === '42P01') {
-        Alert.alert(
-          'Friends Feature Not Set Up',
-          'You need to create the friends table in Supabase. Check the console for the SQL command.',
-        );
-        console.log(`
-CREATE TABLE friends (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references users(id) on delete cascade,
-  friend_id uuid references users(id) on delete cascade,
-  created_at timestamptz default now(),
-  unique(user_id, friend_id)
-);
-
--- RLS Policies
-ALTER TABLE friends ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view their own friends"
-  ON friends FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can add friends"
-  ON friends FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can remove friends"
-  ON friends FOR DELETE
-  USING (auth.uid() = user_id);
-        `);
-      } else {
-        Alert.alert('Error', 'Failed to update friend');
-      }
+      console.error('Error sending friend request:', error);
+      Alert.alert('Error', 'Failed to send friend request');
     }
+  };
+
+  const handleAcceptRequest = async (friendId) => {
+    try {
+      const { error } = await supabase
+        .from('friendships')
+        .update({ 
+          status: 'accepted',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', friendId)
+        .eq('friend_id', user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setFriendships(prev => new Map(prev).set(friendId, {
+        status: 'accepted',
+        sentByMe: false,
+      }));
+
+      Alert.alert('Success', 'Friend request accepted!');
+    } catch (error) {
+      console.error('Error accepting friend request:', error);
+      Alert.alert('Error', 'Failed to accept friend request');
+    }
+  };
+
+  const handleRemoveFriend = async (friendId) => {
+    try {
+      const friendship = friendships.get(friendId);
+      
+      // Delete the friendship (works for both pending and accepted)
+      const { error } = await supabase
+        .from('friendships')
+        .delete()
+        .or(
+          `and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`
+        );
+
+      if (error) throw error;
+
+      // Update local state
+      setFriendships(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(friendId);
+        return newMap;
+      });
+
+      Alert.alert('Success', friendship?.status === 'accepted' ? 'Friend removed' : 'Request cancelled');
+    } catch (error) {
+      console.error('Error removing friend:', error);
+      Alert.alert('Error', 'Failed to remove friend');
+    }
+  };
+
+  const getFriendshipButton = (userId) => {
+    const friendship = friendships.get(userId);
+
+    if (!friendship) {
+      // Not friends - show add button
+      return (
+        <TouchableOpacity
+          onPress={() => handleSendRequest(userId)}
+          style={styles.addButton}
+        >
+          <UserPlus color="rgba(255,255,255,0.7)" size={16} />
+        </TouchableOpacity>
+      );
+    }
+
+    if (friendship.status === 'accepted') {
+      // Already friends - show check with option to remove
+      return (
+        <TouchableOpacity
+          onPress={() => handleRemoveFriend(userId)}
+          style={styles.friendButton}
+        >
+          <Check color="#000" size={16} />
+        </TouchableOpacity>
+      );
+    }
+
+    if (friendship.status === 'pending' && friendship.sentByMe) {
+      // Pending request sent by me - show pending icon
+      return (
+        <TouchableOpacity
+          onPress={() => handleRemoveFriend(userId)}
+          style={styles.pendingButton}
+        >
+          <Clock color="rgba(255,255,255,0.7)" size={16} />
+        </TouchableOpacity>
+      );
+    }
+
+    if (friendship.status === 'pending' && !friendship.sentByMe) {
+      // Pending request sent to me - show accept/reject
+      return (
+        <View style={styles.requestButtons}>
+          <TouchableOpacity
+            onPress={() => handleAcceptRequest(userId)}
+            style={styles.acceptButton}
+          >
+            <Check color="#000" size={16} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => handleRemoveFriend(userId)}
+            style={styles.rejectButton}
+          >
+            <X color="rgba(255,255,255,0.7)" size={16} />
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return null;
   };
 
   // Filter users by search query
   const filteredUsers = users.filter(u =>
-    u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email.toLowerCase().includes(searchQuery.toLowerCase())
+    u.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Count friends (accepted only)
+  const friendCount = Array.from(friendships.values()).filter(
+    f => f.status === 'accepted'
+  ).length;
 
   if (loading) {
     return (
@@ -192,7 +274,7 @@ CREATE POLICY "Users can remove friends"
             style={styles.searchIcon}
           />
           <TextInput
-            placeholder="Search by username or email..."
+            placeholder="Search by username..."
             placeholderTextColor="rgba(255,255,255,0.3)"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -216,45 +298,29 @@ CREATE POLICY "Users can remove friends"
             </Text>
           </View>
         ) : (
-          filteredUsers.map((u) => {
-            const isFriend = friends.has(u.id);
-            
-            return (
-              <View key={u.id} style={styles.userCard}>
-                <Image
-                  source={{ 
-                    uri: u.profile_picture_url || 
-                         `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
-                  }}
-                  style={styles.userAvatar}
-                />
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{u.username}</Text>
-                  <Text style={styles.userUsername}>{u.email}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleAddFriend(u.id)}
-                  style={[
-                    styles.addButton,
-                    isFriend && styles.addButtonActive
-                  ]}
-                >
-                  {isFriend ? (
-                    <Check color="#000" size={16} />
-                  ) : (
-                    <UserPlus color="rgba(255,255,255,0.7)" size={16} />
-                  )}
-                </TouchableOpacity>
+          filteredUsers.map((u) => (
+            <View key={u.id} style={styles.userCard}>
+              <Image
+                source={{ 
+                  uri: u.profile_picture_url || 
+                       `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
+                }}
+                style={styles.userAvatar}
+              />
+              <View style={styles.userInfo}>
+                <Text style={styles.userName}>{u.username}</Text>
+                <Text style={styles.userEmail}>{u.email}</Text>
               </View>
-            );
-          })
+              {getFriendshipButton(u.id)}
+            </View>
+          ))
         )}
 
         {/* Friend Count */}
-        {friends.size > 0 && (
+        {friendCount > 0 && (
           <View style={styles.friendCount}>
             <Text style={styles.friendCountText}>
-              {friends.size} {friends.size === 1 ? 'friend' : 'friends'}
+              {friendCount} {friendCount === 1 ? 'friend' : 'friends'}
             </Text>
           </View>
         )}
@@ -366,7 +432,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 2,
   },
-  userUsername: {
+  userEmail: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
   },
@@ -380,8 +446,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addButtonActive: {
+  friendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  acceptButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rejectButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyState: {
     alignItems: 'center',
