@@ -68,9 +68,9 @@ export default function AddFriends({ navigation }) {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, username, email, profile_picture_url')
+        .select('id, username, profile_picture_url')
         .neq('id', user.id)
-        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .or(`username.ilike.%${query}%`)
         .limit(20);
 
       if (error) throw error;
@@ -247,7 +247,7 @@ export default function AddFriends({ navigation }) {
             style={styles.searchIcon}
           />
           <TextInput
-            placeholder="Search by username or email..."
+            placeholder="Search by username..."
             placeholderTextColor="rgba(255,255,255,0.3)"
             value={searchQuery}
             onChangeText={handleSearch}
@@ -298,7 +298,6 @@ export default function AddFriends({ navigation }) {
                 />
                 <View style={styles.userInfo}>
                   <Text style={styles.userName}>{u.username}</Text>
-                  <Text style={styles.userEmail}>{u.email}</Text>
                 </View>
                 {getFriendshipButton(u.id)}
               </View>

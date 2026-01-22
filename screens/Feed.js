@@ -10,8 +10,10 @@ import {
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  Alert,
 } from 'react-native';
-import { Users, Settings, Menu, Plus } from 'lucide-react-native';
+import { Users, Plus, X } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -21,6 +23,9 @@ export default function Feed({ navigation }) {
   const [posts, setPosts] = useState([]);
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showGoalSelector, setShowGoalSelector] = useState(false);
+  const [goals, setGoals] = useState([]);
+  const [loadingGoals, setLoadingGoals] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -95,6 +100,46 @@ export default function Feed({ navigation }) {
     }
   };
 
+  const loadGoals = async () => {
+    setLoadingGoals(true);
+    try {
+      const { data, error } = await supabase
+        .from('goals')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('completed', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        Alert.alert(
+          'No Goals',
+          'You need to create a goal before posting',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      setGoals(data);
+      setShowGoalSelector(true);
+    } catch (error) {
+      console.error('Error loading goals:', error);
+      Alert.alert('Error', 'Failed to load your goals');
+    } finally {
+      setLoadingGoals(false);
+    }
+  };
+
+  const handleAddPost = () => {
+    loadGoals();
+  };
+
+  const handleGoalSelect = (goal) => {
+    setShowGoalSelector(false);
+    navigation.navigate('CreatePost', { goalId: goal.id });
+  };
+
   const onRefresh = () => {
     setRefreshing(true);
     loadPosts();
@@ -125,10 +170,15 @@ export default function Feed({ navigation }) {
 
         <View style={styles.headerActions}>
           <TouchableOpacity 
-            onPress={() => navigation.navigate('CreatePost')}
+            onPress={handleAddPost}
             style={styles.headerButton}
+            disabled={loadingGoals}
           >
-            <Plus color="rgba(255,255,255,0.7)" size={20} />
+            {loadingGoals ? (
+              <ActivityIndicator color="rgba(255,255,255,0.7)" size="small" />
+            ) : (
+              <Plus color="rgba(255,255,255,0.7)" size={20} />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -136,13 +186,6 @@ export default function Feed({ navigation }) {
             style={styles.headerButton}
           >
             <Users color="rgba(255,255,255,0.7)" size={20} />
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            onPress={() => navigation.navigate('Settings')}
-            style={styles.headerButton}
-          >
-            <Menu color="rgba(255,255,255,0.7)" size={20} />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -219,6 +262,48 @@ export default function Feed({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Goal Selector Modal */}
+      <Modal
+        visible={showGoalSelector}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGoalSelector(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowGoalSelector(false)}
+        >
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Goal</Text>
+              <TouchableOpacity onPress={() => setShowGoalSelector(false)}>
+                <X color="#fff" size={24} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Goals List */}
+            <ScrollView style={styles.modalScroll}>
+              {goals.map((goal) => (
+                <TouchableOpacity
+                  key={goal.id}
+                  style={styles.goalItem}
+                  onPress={() => handleGoalSelect(goal)}
+                >
+                  <View>
+                    <Text style={styles.goalTitle}>{goal.title}</Text>
+                    {goal.description && (
+                      <Text style={styles.goalDescription}>{goal.description}</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -357,6 +442,55 @@ const styles = StyleSheet.create({
   },
   endText: {
     color: 'rgba(255,255,255,0.3)',
+    fontSize: 14,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    width: '85%',
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalScroll: {
+    padding: 16,
+  },
+  goalItem: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  goalTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  goalDescription: {
+    color: 'rgba(255,255,255,0.6)',
     fontSize: 14,
   },
 });

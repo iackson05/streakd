@@ -15,83 +15,35 @@ import {
 import { ArrowLeft, Search, UserPlus, UserMinus, Clock, Check, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
+import { useData } from '../contexts/DataContext';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 export default function Friends({ navigation }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [friends, setFriends] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'requests'
 
+  const { 
+    friendsData, 
+    fetchFriendsData, 
+    addFriend, 
+    removeFriend, 
+    acceptFriendRequest, 
+    removePendingRequest 
+    } = useData();
+
+  const { friends, pendingRequests, loading} = friendsData;
+
   useEffect(() => {
-    if (user) {
-      loadFriendships();
-    }
+    if (user) fetchFriendsData();
   }, [user]);
 
-  const loadFriendships = async () => {
-    try {
-      // Get all friendships involving current user
-      const { data, error } = await supabase
-        .from('friendships')
-        .select(`
-          user_id,
-          friend_id,
-          status,
-          created_at,
-          users!friendships_user_id_fkey (
-            id,
-            username,
-            email,
-            profile_picture_url
-          ),
-          friend:users!friendships_friend_id_fkey (
-            id,
-            username,
-            email,
-            profile_picture_url
-          )
-        `)
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Separate into friends and pending requests
-      const acceptedFriends = [];
-      const requests = [];
-
-      data?.forEach(friendship => {
-        const isRequestSentByMe = friendship.user_id === user.id;
-        const otherUser = isRequestSentByMe 
-          ? friendship.friend 
-          : friendship.users;
-
-        if (friendship.status === 'accepted') {
-          acceptedFriends.push({
-            ...otherUser,
-            friendshipId: friendship.user_id + '-' + friendship.friend_id,
-          });
-        } else if (friendship.status === 'pending' && !isRequestSentByMe) {
-          // Only show incoming requests
-          requests.push({
-            ...otherUser,
-            friendshipId: friendship.user_id + '-' + friendship.friend_id,
-            senderId: friendship.user_id,
-          });
-        }
-      });
-
-      setFriends(acceptedFriends);
-      setPendingRequests(requests);
-    } catch (error) {
-      console.error('Error loading friendships:', error);
-      Alert.alert('Error', 'Failed to load friends');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useFocusEffect(
+    useCallback(() => {
+        if (user) fetchFriendsData(); 
+    }, [user])
+  );
 
   const handleRemoveFriend = async (friendId) => {
     Alert.alert(
@@ -113,8 +65,9 @@ export default function Friends({ navigation }) {
 
               if (error) throw error;
 
-              // Update local state
-              setFriends(prev => prev.filter(f => f.id !== friendId));
+              //update cache
+              removeFriend(friendId);
+
               Alert.alert('Success', 'Friend removed');
             } catch (error) {
               console.error('Error removing friend:', error);
@@ -126,7 +79,7 @@ export default function Friends({ navigation }) {
     );
   };
 
-  const handleAcceptRequest = async (senderId) => {
+  const handleAcceptRequest = async (senderId, friendData) => {
     try {
       const { error } = await supabase
         .from('friendships')
@@ -139,8 +92,8 @@ export default function Friends({ navigation }) {
 
       if (error) throw error;
 
-      // Reload friendships to update UI
-      loadFriendships();
+      acceptFriendRequest(friendData, senderId);
+
       Alert.alert('Success', 'Friend request accepted!');
     } catch (error) {
       console.error('Error accepting request:', error);
@@ -158,8 +111,8 @@ export default function Friends({ navigation }) {
 
       if (error) throw error;
 
-      // Update local state
-      setPendingRequests(prev => prev.filter(r => r.senderId !== senderId));
+      removePendingRequest(senderId);
+
       Alert.alert('Success', 'Request rejected');
     } catch (error) {
       console.error('Error rejecting request:', error);
@@ -169,11 +122,10 @@ export default function Friends({ navigation }) {
 
   // Filter friends by search query
   const filteredFriends = friends.filter(f =>
-    f.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    f.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    f.username?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  if (loading) {
+  if (loading && friends.length === 0) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#fff" />
@@ -273,7 +225,6 @@ export default function Friends({ navigation }) {
                   />
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{friend.username}</Text>
-                    <Text style={styles.userEmail}>{friend.email}</Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => handleRemoveFriend(friend.id)}
@@ -311,7 +262,7 @@ export default function Friends({ navigation }) {
                   </View>
                   <View style={styles.requestButtons}>
                     <TouchableOpacity
-                      onPress={() => handleAcceptRequest(request.senderId)}
+                      onPress={() => handleAcceptRequest(request.senderId, request)}
                       style={styles.acceptButton}
                     >
                       <Check color="#000" size={16} />

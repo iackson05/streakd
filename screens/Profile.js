@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,22 +14,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X } from 'lucide-react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { supabase } from '../services/supabase';
 
 export default function Profile({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
-  const [goals, setGoals] = useState([]);
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalGoals: 0,
-    currentStreak: 0,
-    totalDays: 0,
-  });
+  const { profileData, fetchProfileData, addGoal } = useData();
 
   // Goal creation modal state
   const [showCreateGoal, setShowCreateGoal] = useState(false);
@@ -38,90 +34,29 @@ export default function Profile({ navigation }) {
   const [streakInterval, setStreakInterval] = useState(1);
   const [goalPrivacy, setGoalPrivacy] = useState('friends');
   const [creatingGoal, setCreatingGoal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
+  // Fetch data on first mount
   useEffect(() => {
     if (user) {
-      loadProfileData();
+      fetchProfileData();
     }
   }, [user]);
 
-  const loadProfileData = async () => {
-    try {
-      // Load user's goals
-      const { data: goalsData, error: goalsError } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (goalsError) throw goalsError;
-
-      // Load user's posts
-      const { data: postsData, error: postsError } = await supabase
-        .from('posts')
-        .select('*, goals(title)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (postsError) throw postsError;
-
-      setGoals(goalsData || []);
-      setPosts(postsData || []);
-
-      // Calculate stats
-      calculateStats(goalsData, postsData);
-    } catch (error) {
-      console.error('Error loading profile data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateStats = (goalsData, postsData) => {
-    const activeGoals = goalsData?.filter(g => !g.completed).length || 0;
-    const streak = calculateStreak(postsData);
-    const uniqueDays = new Set(
-      postsData?.map(p => new Date(p.created_at).toDateString())
-    ).size;
-
-    setStats({
-      totalGoals: activeGoals,
-      currentStreak: streak,
-      totalDays: uniqueDays,
-    });
-  };
-
-  const calculateStreak = (postsData) => {
-    if (!postsData || postsData.length === 0) return 0;
-
-    const postDates = [...new Set(
-      postsData.map(p => new Date(p.created_at).toDateString())
-    )].sort((a, b) => new Date(b) - new Date(a));
-
-    let streak = 0;
-    const today = new Date().toDateString();
-    const yesterday = new Date(Date.now() - 86400000).toDateString();
-
-    if (postDates[0] !== today && postDates[0] !== yesterday) {
-      return 0;
-    }
-
-    let currentDate = new Date();
-    for (let dateStr of postDates) {
-      const postDate = new Date(dateStr);
-      const expectedDate = new Date(currentDate);
-      expectedDate.setHours(0, 0, 0, 0);
-      postDate.setHours(0, 0, 0, 0);
-
-      if (postDate.getTime() === expectedDate.getTime()) {
-        streak++;
-        currentDate.setDate(currentDate.getDate() - 1);
-      } else {
-        break;
+  // Auto-refresh when screen gains focus (if data is stale)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        fetchProfileData(); // Uses cache if fresh, fetches if stale
       }
-    }
+    }, [user])
+  );
 
-    return streak;
+  // Manual refresh (pull to refresh)
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchProfileData(true); // Force fresh data
+    setRefreshing(false);
   };
 
   const getStreakText = (days) => {
@@ -139,6 +74,7 @@ export default function Profile({ navigation }) {
     setCreatingGoal(true);
 
     try {
+      // Insert to database
       const { data, error } = await supabase
         .from('goals')
         .insert({
@@ -156,14 +92,8 @@ export default function Profile({ navigation }) {
 
       if (error) throw error;
 
-      // Add new goal to state
-      setGoals([data, ...goals]);
-      
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        totalGoals: prev.totalGoals + 1,
-      }));
+      // Immediately update cache (UI updates instantly!)
+      addGoal(data);
 
       // Reset form and close modal
       setNewGoalTitle('');
@@ -188,7 +118,7 @@ export default function Profile({ navigation }) {
     });
   };
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator color="#fff" />
@@ -198,6 +128,15 @@ export default function Profile({ navigation }) {
 
   if (!user || !profile) {
     return null;
+  }
+
+  // Show loading spinner only on first load
+  if (profileData.loading && !profileData.lastFetch) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator color="#fff" />
+      </View>
+    );
   }
 
   return (
@@ -224,6 +163,13 @@ export default function Profile({ navigation }) {
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor="#fff"
+          />
+        }
       >
         {/* Profile Card */}
         <View style={styles.profileCard}>
@@ -242,17 +188,17 @@ export default function Profile({ navigation }) {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Target color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats.totalGoals}</Text>
+              <Text style={styles.statValue}>{profileData.stats.totalGoals}</Text>
               <Text style={styles.statLabel}>Goals</Text>
             </View>
             <View style={styles.statItem}>
               <Flame color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats.currentStreak}</Text>
+              <Text style={styles.statValue}>{profileData.stats.currentStreak}</Text>
               <Text style={styles.statLabel}>Streak</Text>
             </View>
             <View style={styles.statItem}>
               <Calendar color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{stats.totalDays}</Text>
+              <Text style={styles.statValue}>{profileData.stats.totalDays}</Text>
               <Text style={styles.statLabel}>Total Days</Text>
             </View>
           </View>
@@ -269,15 +215,15 @@ export default function Profile({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {goals.length === 0 ? (
+        {profileData.goals.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No active goals</Text>
             <Text style={styles.emptySubtext}>Create your first goal to get started!</Text>
           </View>
         ) : (
           <View style={styles.goalsContainer}>
-            {goals.filter(g => !g.completed).map((goal) => {
-              const goalPosts = posts.filter(p => p.goal_id === goal.id).length;
+            {profileData.goals.filter(g => !g.completed).map((goal) => {
+              const goalPosts = profileData.posts.filter(p => p.goal_id === goal.id).length;
               
               return (
                 <TouchableOpacity
@@ -305,7 +251,7 @@ export default function Profile({ navigation }) {
         {/* Total Posts */}
         <Text style={styles.sectionTitle}>Activity</Text>
         <View style={styles.activityCard}>
-          <Text style={styles.activityValue}>{posts.length}</Text>
+          <Text style={styles.activityValue}>{profileData.posts.length}</Text>
           <Text style={styles.activityLabel}>Total Posts</Text>
         </View>
       </ScrollView>
