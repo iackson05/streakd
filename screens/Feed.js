@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import { UserPlus, Settings, Menu, Plus } from 'lucide-react-native';
+import { Users, Settings, Menu, Plus } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -132,10 +132,10 @@ export default function Feed({ navigation }) {
           </TouchableOpacity>
 
           <TouchableOpacity 
-            onPress={() => navigation.navigate('AddFriends')}
+            onPress={() => navigation.navigate('Friends')}
             style={styles.headerButton}
           >
-            <UserPlus color="rgba(255,255,255,0.7)" size={20} />
+            <Users color="rgba(255,255,255,0.7)" size={20} />
           </TouchableOpacity>
 
           <TouchableOpacity 

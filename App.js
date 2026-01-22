@@ -8,6 +8,7 @@ import GoalFeed from './screens/GoalFeed';
 import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import CreatePost from './screens/CreatePost';
+import Friends from './screens/Friends';
 import { AuthProvider } from './contexts/AuthContext';
 
 const Stack = createStackNavigator();
@@ -24,6 +25,7 @@ export default function App() {
           <Stack.Screen name="Settings" component={Settings} />
           <Stack.Screen name="AddFriends" component={AddFriends} />
           <Stack.Screen name="GoalFeed" component={GoalFeed} />
+          <Stack.Screen name="Friends" component={Friends} />
           <Stack.Screen name="CreatePost" component={CreatePost} options={{ headerShown: false }} />
         </Stack.Navigator>
       </NavigationContainer>

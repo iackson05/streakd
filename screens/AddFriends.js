@@ -20,44 +20,17 @@ export default function AddFriends({ navigation }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [friendships, setFriendships] = useState(new Map()); // Map<userId, {status, sentByMe}>
+  const [loading, setLoading] = useState(false);
+  const [friendships, setFriendships] = useState(new Map());
 
   useEffect(() => {
     if (user) {
-      loadData();
+      loadFriendships();
     }
   }, [user]);
 
-  const loadData = async () => {
-    try {
-      await Promise.all([loadUsers(), loadFriendships()]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadUsers = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, username, email, profile_picture_url')
-        .neq('id', user.id)
-        .order('username', { ascending: true });
-
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error('Error loading users:', error);
-      Alert.alert('Error', 'Failed to load users');
-    }
-  };
-
   const loadFriendships = async () => {
     try {
-      // Get all friendships where current user is involved
       const { data, error } = await supabase
         .from('friendships')
         .select('user_id, friend_id, status')
@@ -65,7 +38,6 @@ export default function AddFriends({ navigation }) {
 
       if (error) throw error;
 
-      // Build map of friendships
       const friendshipMap = new Map();
       data?.forEach(friendship => {
         const otherUserId = friendship.user_id === user.id 
@@ -86,6 +58,36 @@ export default function AddFriends({ navigation }) {
     }
   };
 
+  const searchUsers = async (query) => {
+    if (!query.trim()) {
+      setUsers([]);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, email, profile_picture_url')
+        .neq('id', user.id)
+        .or(`username.ilike.%${query}%,email.ilike.%${query}%`)
+        .limit(20);
+
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      Alert.alert('Error', 'Failed to search users');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    searchUsers(query);
+  };
+
   const handleSendRequest = async (friendId) => {
     try {
       const { error } = await supabase
@@ -99,7 +101,6 @@ export default function AddFriends({ navigation }) {
 
       if (error) throw error;
 
-      // Update local state
       setFriendships(prev => new Map(prev).set(friendId, {
         status: 'pending',
         sentByMe: true,
@@ -125,7 +126,6 @@ export default function AddFriends({ navigation }) {
 
       if (error) throw error;
 
-      // Update local state
       setFriendships(prev => new Map(prev).set(friendId, {
         status: 'accepted',
         sentByMe: false,
@@ -142,7 +142,6 @@ export default function AddFriends({ navigation }) {
     try {
       const friendship = friendships.get(friendId);
       
-      // Delete the friendship (works for both pending and accepted)
       const { error } = await supabase
         .from('friendships')
         .delete()
@@ -152,7 +151,6 @@ export default function AddFriends({ navigation }) {
 
       if (error) throw error;
 
-      // Update local state
       setFriendships(prev => {
         const newMap = new Map(prev);
         newMap.delete(friendId);
@@ -170,7 +168,6 @@ export default function AddFriends({ navigation }) {
     const friendship = friendships.get(userId);
 
     if (!friendship) {
-      // Not friends - show add button
       return (
         <TouchableOpacity
           onPress={() => handleSendRequest(userId)}
@@ -182,7 +179,6 @@ export default function AddFriends({ navigation }) {
     }
 
     if (friendship.status === 'accepted') {
-      // Already friends - show check with option to remove
       return (
         <TouchableOpacity
           onPress={() => handleRemoveFriend(userId)}
@@ -194,7 +190,6 @@ export default function AddFriends({ navigation }) {
     }
 
     if (friendship.status === 'pending' && friendship.sentByMe) {
-      // Pending request sent by me - show pending icon
       return (
         <TouchableOpacity
           onPress={() => handleRemoveFriend(userId)}
@@ -206,7 +201,6 @@ export default function AddFriends({ navigation }) {
     }
 
     if (friendship.status === 'pending' && !friendship.sentByMe) {
-      // Pending request sent to me - show accept/reject
       return (
         <View style={styles.requestButtons}>
           <TouchableOpacity
@@ -228,24 +222,6 @@ export default function AddFriends({ navigation }) {
     return null;
   };
 
-  // Filter users by search query
-  const filteredUsers = users.filter(u =>
-    u.username.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Count friends (accepted only)
-  const friendCount = Array.from(friendships.values()).filter(
-    f => f.status === 'accepted'
-  ).length;
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -262,10 +238,7 @@ export default function AddFriends({ navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
+      <View style={styles.content}>
         {/* Search */}
         <View style={styles.searchContainer}>
           <Search 
@@ -274,57 +247,65 @@ export default function AddFriends({ navigation }) {
             style={styles.searchIcon}
           />
           <TextInput
-            placeholder="Search by username..."
+            placeholder="Search by username or email..."
             placeholderTextColor="rgba(255,255,255,0.3)"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearch}
             style={styles.searchInput}
             autoCapitalize="none"
+            autoFocus
           />
         </View>
 
-        {/* Users List */}
-        <Text style={styles.sectionTitle}>
-          {searchQuery ? 'SEARCH RESULTS' : 'ALL USERS'}
-        </Text>
-        
-        {filteredUsers.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View style={styles.emptyIcon}>
-              <Search color="rgba(255,255,255,0.3)" size={20} />
+        {/* Results */}
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#fff" />
             </View>
-            <Text style={styles.emptyText}>
-              {searchQuery ? 'No users found' : 'No other users yet'}
-            </Text>
-          </View>
-        ) : (
-          filteredUsers.map((u) => (
-            <View key={u.id} style={styles.userCard}>
-              <Image
-                source={{ 
-                  uri: u.profile_picture_url || 
-                       `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
-                }}
-                style={styles.userAvatar}
-              />
-              <View style={styles.userInfo}>
-                <Text style={styles.userName}>{u.username}</Text>
-                <Text style={styles.userEmail}>{u.email}</Text>
+          ) : searchQuery.trim() === '' ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Search color="rgba(255,255,255,0.3)" size={20} />
               </View>
-              {getFriendshipButton(u.id)}
+              <Text style={styles.emptyText}>Search for users</Text>
+              <Text style={styles.emptySubtext}>
+                Enter a username or email to find friends
+              </Text>
             </View>
-          ))
-        )}
-
-        {/* Friend Count */}
-        {friendCount > 0 && (
-          <View style={styles.friendCount}>
-            <Text style={styles.friendCountText}>
-              {friendCount} {friendCount === 1 ? 'friend' : 'friends'}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
+          ) : users.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIcon}>
+                <Search color="rgba(255,255,255,0.3)" size={20} />
+              </View>
+              <Text style={styles.emptyText}>No users found</Text>
+              <Text style={styles.emptySubtext}>
+                Try a different search
+              </Text>
+            </View>
+          ) : (
+            users.map((u) => (
+              <View key={u.id} style={styles.userCard}>
+                <Image
+                  source={{ 
+                    uri: u.profile_picture_url || 
+                         `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
+                  }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfo}>
+                  <Text style={styles.userName}>{u.username}</Text>
+                  <Text style={styles.userEmail}>{u.email}</Text>
+                </View>
+                {getFriendshipButton(u.id)}
+              </View>
+            ))
+          )}
+        </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -333,12 +314,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-  },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: '#000',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -369,21 +344,17 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
-  scrollView: {
+  content: {
     flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingTop: 24,
   },
   searchContainer: {
     position: 'relative',
-    marginBottom: 32,
+    padding: 16,
   },
   searchIcon: {
     position: 'absolute',
-    left: 16,
-    top: 18,
+    left: 32,
+    top: 32,
     zIndex: 1,
   },
   searchInput: {
@@ -397,13 +368,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
   },
-  sectionTitle: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 1,
-    marginBottom: 16,
-    paddingHorizontal: 4,
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  loadingContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
   },
   userCard: {
     flexDirection: 'row',
@@ -502,19 +476,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   emptyText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  emptySubtext: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
-  },
-  friendCount: {
-    marginTop: 24,
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  friendCountText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    fontWeight: '500',
+    textAlign: 'center',
   },
 });
