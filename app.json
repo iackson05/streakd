@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "streakd-clean",
-    "slug": "streakd-clean",
+    "name": "streakd",
+    "slug": "streakd",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
