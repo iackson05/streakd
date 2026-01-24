@@ -127,6 +127,8 @@ export default function CreatePostScreen({ navigation, route }) {
         .from('post-images')
         .getPublicUrl(fileName);
 
+      const now = new Date().toISOString();
+
       // Create post in database
       const { data, error } = await supabase
         .from('posts')
@@ -140,6 +142,15 @@ export default function CreatePostScreen({ navigation, route }) {
         .single();
 
       if (error) throw error;
+
+      const { error: updateError } = await supabase
+        .from('goals')
+        .update({ last_posted_at: now })
+        .eq('id', selectedGoal.id);
+    
+      if (updateError) {
+        console.error('Error updating goal last_posted_at:', updateError);
+      }
 
       Alert.alert('Success!', 'Post created', [
         { text: 'OK', onPress: () => navigation.navigate('Feed') }
