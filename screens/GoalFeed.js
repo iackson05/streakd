@@ -16,6 +16,7 @@ import { supabase } from '../services/supabase';
 
 export default function GoalFeed({ route, navigation }) {
   const goalId = route?.params?.goalId;
+  const goalDescription = route?.params?.goalDescription;
   const goalName = route?.params?.goalName;
 
   const [posts, setPosts] = useState([]);
@@ -130,6 +131,9 @@ export default function GoalFeed({ route, navigation }) {
             {goalName || 'Goal Posts'}
           </Text>
           <Text style={styles.subtitle}>
+            {goalDescription || ''}
+          </Text>
+          <Text style={styles.goalcount}>
             {posts.length} {posts.length === 1 ? 'post' : 'posts'}
           </Text>
         </View>
@@ -251,6 +255,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   subtitle: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  goalcount: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
   },

@@ -1,81 +1,147 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   Image, 
   TouchableOpacity, 
-  StyleSheet 
+  StyleSheet,
 } from 'react-native';
-import { Heart, MessageCircle } from 'lucide-react-native';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../services/supabase';
+
+const REACTIONS = [
+  { emoji: '🔥', key: 'reaction_fire' },
+  { emoji: '👊', key: 'reaction_fist' },
+  { emoji: '🎉', key: 'reaction_party' },
+  { emoji: '❤️', key: 'reaction_heart' },
+];
 
 export default function PostCard({ post }) {
-  const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(post.likes);
+  const { user } = useAuth();
+  const [userReaction, setUserReaction] = useState(null);
+  const [localCounts, setLocalCounts] = useState({
+    reaction_fire: post.reaction_fire ?? 0,
+    reaction_fist: post.reaction_fist ?? 0,
+    reaction_party: post.reaction_party ?? 0,
+    reaction_heart: post.reaction_heart ?? 0,
+  });
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+  useEffect(() => {
+    loadUserReaction();
+  }, [post.id]);
+
+  useEffect(() => {
+  setLocalCounts({
+    reaction_fire: post.reaction_fire ?? 0,
+    reaction_fist: post.reaction_fist ?? 0,
+    reaction_party: post.reaction_party ?? 0,
+    reaction_heart: post.reaction_heart ?? 0,
+  });
+  }, [post.id, post.reaction_fire, post.reaction_fist, post.reaction_party, post.reaction_heart]);
+
+
+  const loadUserReaction = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reactions')
+        .select('react_emoji')
+        .eq('post_id', post.id)
+        .eq('user_id_who_reacted', user?.id)
+        .maybeSingle();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      
+      setUserReaction(data?.react_emoji || null);
+    } catch (error) {
+      console.error('Error loading user reaction:', error);
+    }
+  };
+
+  const handleReaction = async (emoji, key) => {
+    try {
+      // Call the Postgres function (bypasses RLS)
+      const { data, error } = await supabase
+        .rpc('toggle_reaction', {
+          p_post_id: post.id,
+          p_user_id: user.id,
+          p_emoji: emoji,
+        })
+        .single();
+
+      if (error) throw error;
+
+      // Update local state with returned counts
+      setLocalCounts({
+        reaction_fire: data.reaction_fire,
+        reaction_fist: data.reaction_fist,
+        reaction_party: data.reaction_party,
+        reaction_heart: data.reaction_heart,
+      });
+
+      setUserReaction(data.user_reaction);
+    } catch (error) {
+      console.error('Error updating reaction:', error);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Card */}
       <View style={styles.card}>
-        {/* Image Container */}
         <View style={styles.imageContainer}>
           <Image
             source={{ uri: post.image }}
             style={styles.image}
             resizeMode="cover"
           />
-          
+                    
           {/* Top - Username & Goal */}
           <View style={styles.topSection}>
             <Image
-              source={{ uri: `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.username}` }}
+              source={{ uri: post.profile_picture_url }}
               style={styles.avatar}
             />
             <View style={styles.userInfo}>
               <Text style={styles.username}>{post.username}</Text>
               <View style={styles.goalRow}>
                 <Text style={styles.goalText}>{post.goal}</Text>
-                <View style={styles.dayBadge}>
-                  <Text style={styles.dayText}>Day {post.dayNumber}</Text>
-                </View>
               </View>
             </View>
           </View>
 
-          {/* Bottom - Caption & Actions */}
+          {/* Bottom - Caption & Reactions */}
           <View style={styles.bottomSection}>
-            <Text style={styles.caption} numberOfLines={2}>
-              {post.caption}
-            </Text>
+            {post.caption && (
+              <Text style={styles.caption} numberOfLines={2}>
+                {post.caption}
+              </Text>
+            )}
             
-            {/* Actions Row */}
-            <View style={styles.actionsRow}>
-              <TouchableOpacity 
-                onPress={handleLike}
-                style={styles.actionButton}
-              >
-                <Heart 
-                  color={isLiked ? '#fff' : 'rgba(255,255,255,0.7)'} 
-                  fill={isLiked ? '#fff' : 'none'}
-                  size={20}
-                />
-                <Text style={[
-                  styles.actionText,
-                  isLiked && styles.actionTextActive
-                ]}>
-                  {likeCount}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionButton}>
-                <MessageCircle color="rgba(255,255,255,0.7)" size={20} />
-                <Text style={styles.actionText}>{post.comments}</Text>
-              </TouchableOpacity>
-
+            {/* Reactions Row */}
+            <View style={styles.reactionsRow}>
+              {REACTIONS.map(({ emoji, key }) => {
+                const count = localCounts[key];
+                const isActive = userReaction === emoji;
+                
+                return (
+                  <TouchableOpacity
+                    key={emoji}
+                    onPress={() => handleReaction(emoji, key)}
+                    style={[
+                      styles.reactionBubble,
+                      isActive && styles.reactionBubbleActive,
+                    ]}
+                  >
+                    <Text style={styles.reactionEmoji}>{emoji}</Text>
+                    <Text style={[
+                      styles.reactionCount,
+                      isActive && styles.reactionCountActive,
+                    ]}>
+                      {count > 99 ? '99+' : count}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+              
               <Text style={styles.timestamp}>{post.timestamp}</Text>
             </View>
           </View>
@@ -103,6 +169,22 @@ const styles = StyleSheet.create({
   image: {
     width: '100%',
     height: '100%',
+  },
+  gradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  gradientBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    backgroundColor: 'rgba(0,0,0,0.8)',
   },
   topSection: {
     position: 'absolute',
@@ -137,48 +219,49 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
   },
-  dayBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  dayText: {
-    color: '#fff',
-    fontSize: 10,
-    fontWeight: '500',
-  },
   bottomSection: {
     position: 'absolute',
     bottom: 16,
     left: 16,
     right: 16,
-    gap: 16,
+    gap: 12,
   },
   caption: {
     color: 'rgba(255,255,255,0.9)',
     fontSize: 14,
     lineHeight: 20,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  actionButton: {
+  reactionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
   },
-  actionText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '500',
+  reactionBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 12,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
   },
-  actionTextActive: {
-    color: '#fff',
+  reactionBubbleActive: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  reactionEmoji: {
+    fontSize: 13,
+  },
+  reactionCount: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  reactionCountActive: {
+    color: 'rgba(255,255,255,0.9)',
   },
   timestamp: {
     marginLeft: 'auto',

@@ -60,6 +60,9 @@ export default function Feed({ navigation }) {
 
       console.log('Loading posts from users:', userIds);
 
+      const twentyFourHoursAgo = new Date();
+      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
       // Get posts from friends + self, respecting privacy
       const { data, error } = await supabase
         .from('posts')
@@ -77,7 +80,9 @@ export default function Feed({ navigation }) {
           )
         `)
         .in('user_id', userIds)
-        .order('created_at', { ascending: false });
+        .gte('created_at', twentyFourHoursAgo.toISOString())
+        .order('created_at', { ascending: false })
+        
 
       if (error) throw error;
 
@@ -242,11 +247,14 @@ export default function Feed({ navigation }) {
               post={{
                 id: post.id,
                 username: post.users?.username || 'Unknown',
+                profile_picture_url: post.users?.profile_picture_url,
                 goal: post.goals?.title || 'Goal',
                 image: post.image_url,
                 timestamp: formatTimestamp(post.created_at),
-                likes: 0, // TODO: Calculate from reactions
-                comments: 0, // TODO: Add when you implement comments
+                reaction_fire: post.reaction_fire,
+                reaction_fist: post.reaction_fist,
+                reaction_party: post.reaction_party,
+                reaction_heart: post.reaction_heart,
               }} 
             />
           ))

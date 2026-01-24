@@ -114,7 +114,8 @@ export default function Profile({ navigation }) {
   const handleGoalPress = (goal) => {
     navigation.navigate('GoalFeed', {
       goalId: goal.id,
-      goalName: goal.title
+      goalName: goal.title,
+      goalDescription: goal.description
     });
   };
 
