@@ -1,0 +1,164 @@
+import { supabase } from './supabase';
+
+/**
+ * Get feed posts (friends + self, last 24 hours, privacy filtered)
+ * @param {string} userId - The current user's ID
+ * @returns {Promise<{posts: Array|null, error: Error|null}>}
+ */
+export const getFeedPosts = async (userId) => {
+  try {
+    // Get user's friends (accepted only)
+    const { data: friendships, error: friendError } = await supabase
+      .from('friendships')
+      .select('user_id, friend_id')
+      .or(`user_id.eq.${userId},friend_id.eq.${userId}`)
+      .eq('status', 'accepted');
+
+    if (friendError) throw friendError;
+
+    // Build list of friend IDs
+    const friendIds = friendships?.map(f =>
+      f.user_id === userId ? f.friend_id : f.user_id
+    ) || [];
+
+    // Include current user in the list
+    const userIds = [userId, ...friendIds];
+
+    const twentyFourHoursAgo = new Date();
+    twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+
+    // Get posts from friends + self
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        users!posts_user_id_fkey (
+          id,
+          username,
+          profile_picture_url
+        ),
+        goals!posts_goal_id_fkey (
+          id,
+          title,
+          privacy
+        )
+      `)
+      .in('user_id', userIds)
+      .gte('created_at', twentyFourHoursAgo.toISOString())
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Filter out private posts from other users
+    const filteredPosts = data?.filter(post => {
+      // Always show own posts
+      if (post.user_id === userId) return true;
+
+      // Only show friends' posts if goal is not private
+      return post.goals?.privacy !== 'private';
+    }) || [];
+
+    return { posts: filteredPosts, error: null };
+  } catch (error) {
+    console.error('Error loading feed posts:', error);
+    return { posts: null, error };
+  }
+};
+
+/**
+ * Get all posts for a specific goal
+ * @param {string} goalId - The goal's ID
+ * @returns {Promise<{posts: Array|null, error: Error|null}>}
+ */
+export const getGoalPosts = async (goalId) => {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`
+        *,
+        users!posts_user_id_fkey (
+          id,
+          username,
+          profile_picture_url
+        ),
+        goals!posts_goal_id_fkey (
+          id,
+          title
+        )
+      `)
+      .eq('goal_id', goalId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return { posts: data || [], error: null };
+  } catch (error) {
+    console.error('Error loading goal posts:', error);
+    return { posts: null, error };
+  }
+};
+
+/**
+ * Upload a post image to Supabase storage
+ * @param {string} userId - The user's ID
+ * @param {string} photoUri - The local URI of the photo
+ * @returns {Promise<{publicUrl: string|null, error: Error|null}>}
+ */
+export const uploadPostImage = async (userId, photoUri) => {
+  try {
+    const fileName = userId + '/' + Date.now() + '.jpg';
+    const formData = new FormData();
+    formData.append('file', {
+      uri: photoUri,
+      name: fileName,
+      type: 'image/jpeg',
+    });
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('post-images')
+      .upload(fileName, formData, {
+        contentType: 'image/jpeg',
+      });
+
+    if (uploadError) throw uploadError;
+
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('post-images')
+      .getPublicUrl(fileName);
+
+    return { publicUrl, error: null };
+  } catch (error) {
+    console.error('Error uploading post image:', error);
+    return { publicUrl: null, error };
+  }
+};
+
+/**
+ * Create a new post record
+ * @param {string} userId - The user's ID
+ * @param {string} goalId - The goal's ID
+ * @param {string} imageUrl - The public URL of the uploaded image
+ * @returns {Promise<{post: Object|null, error: Error|null}>}
+ */
+export const createPost = async (userId, goalId, imageUrl) => {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        user_id: userId,
+        goal_id: goalId,
+        image_url: imageUrl,
+        created_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { post: data, error: null };
+  } catch (error) {
+    console.error('Error creating post:', error);
+    return { post: null, error };
+  }
+};

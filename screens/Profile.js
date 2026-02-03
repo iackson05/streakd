@@ -21,7 +21,7 @@ import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X } from 'lucide-re
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { supabase } from '../services/supabase';
+import { createGoal } from '../services/goals';
 
 export default function Profile({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -74,26 +74,17 @@ export default function Profile({ navigation }) {
     setCreatingGoal(true);
 
     try {
-      // Insert to database
-      const { data, error } = await supabase
-        .from('goals')
-        .insert({
-          user_id: user.id,
-          title: newGoalTitle.trim(),
-          description: newGoalDescription.trim() || null,
-          privacy: goalPrivacy,
-          streak_interval: streakInterval,
-          streak_count: 0,
-          completed: false,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      const { goal, error } = await createGoal(user.id, {
+        title: newGoalTitle,
+        description: newGoalDescription,
+        privacy: goalPrivacy,
+        streakInterval: streakInterval,
+      });
 
       if (error) throw error;
 
       // Immediately update cache (UI updates instantly!)
-      addGoal(data);
+      addGoal(goal);
 
       // Reset form and close modal
       setNewGoalTitle('');

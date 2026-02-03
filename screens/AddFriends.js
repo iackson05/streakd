@@ -14,7 +14,13 @@ import {
 } from 'react-native';
 import { ArrowLeft, Search, UserPlus, Check, Clock, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../services/supabase';
+import {
+  searchUsers as searchUsersService,
+  getUserFriendships,
+  sendFriendRequest,
+  acceptFriendRequest,
+  removeFriend
+} from '../services/users';
 
 export default function AddFriends({ navigation }) {
   const { user } = useAuth();
@@ -31,28 +37,11 @@ export default function AddFriends({ navigation }) {
 
   const loadFriendships = async () => {
     try {
-      const { data, error } = await supabase
-        .from('friendships')
-        .select('user_id, friend_id, status')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`);
+      const { friendships: friendshipMap, error } = await getUserFriendships(user.id);
 
       if (error) throw error;
 
-      const friendshipMap = new Map();
-      data?.forEach(friendship => {
-        const otherUserId = friendship.user_id === user.id 
-          ? friendship.friend_id 
-          : friendship.user_id;
-        
-        const sentByMe = friendship.user_id === user.id;
-        
-        friendshipMap.set(otherUserId, {
-          status: friendship.status,
-          sentByMe,
-        });
-      });
-
-      setFriendships(friendshipMap);
+      setFriendships(friendshipMap || new Map());
     } catch (error) {
       console.error('Error loading friendships:', error);
     }
@@ -66,15 +55,10 @@ export default function AddFriends({ navigation }) {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, username, profile_picture_url')
-        .neq('id', user.id)
-        .or(`username.ilike.%${query}%`)
-        .limit(20);
+      const { users: foundUsers, error } = await searchUsersService(query, user.id);
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers(foundUsers || []);
     } catch (error) {
       console.error('Error searching users:', error);
       Alert.alert('Error', 'Failed to search users');
@@ -90,14 +74,7 @@ export default function AddFriends({ navigation }) {
 
   const handleSendRequest = async (friendId) => {
     try {
-      const { error } = await supabase
-        .from('friendships')
-        .insert({
-          user_id: user.id,
-          friend_id: friendId,
-          status: 'pending',
-          created_at: new Date().toISOString(),
-        });
+      const { error } = await sendFriendRequest(user.id, friendId);
 
       if (error) throw error;
 
@@ -115,14 +92,7 @@ export default function AddFriends({ navigation }) {
 
   const handleAcceptRequest = async (friendId) => {
     try {
-      const { error } = await supabase
-        .from('friendships')
-        .update({ 
-          status: 'accepted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', friendId)
-        .eq('friend_id', user.id);
+      const { error } = await acceptFriendRequest(friendId, user.id);
 
       if (error) throw error;
 
@@ -141,13 +111,8 @@ export default function AddFriends({ navigation }) {
   const handleRemoveFriend = async (friendId) => {
     try {
       const friendship = friendships.get(friendId);
-      
-      const { error } = await supabase
-        .from('friendships')
-        .delete()
-        .or(
-          `and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`
-        );
+
+      const { error } = await removeFriend(user.id, friendId);
 
       if (error) throw error;
 

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { ArrowLeft, Plus } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
-import { supabase } from '../services/supabase';
+import { getGoalPosts } from '../services/posts';
 
 export default function GoalFeed({ route, navigation }) {
   const goalId = route?.params?.goalId;
@@ -31,27 +31,12 @@ export default function GoalFeed({ route, navigation }) {
 
   const loadPosts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          users!posts_user_id_fkey (
-            id,
-            username,
-            profile_picture_url
-          ),
-          goals!posts_goal_id_fkey (
-            id,
-            title
-          )
-        `)
-        .eq('goal_id', goalId)
-        .order('created_at', { ascending: false });
+      const { posts: goalPosts, error } = await getGoalPosts(goalId);
 
       if (error) throw error;
 
-      console.log('✅ Loaded goal posts:', data);
-      setPosts(data || []);
+      console.log('✅ Loaded goal posts:', goalPosts?.length || 0);
+      setPosts(goalPosts || []);
     } catch (error) {
       console.error('Error loading goal posts:', error);
     } finally {

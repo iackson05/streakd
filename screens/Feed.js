@@ -16,7 +16,8 @@ import {
 import { Users, Plus, X } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../services/supabase';
+import { getFeedPosts } from '../services/posts';
+import { getUserActiveGoals } from '../services/goals';
 
 export default function Feed({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -35,62 +36,12 @@ export default function Feed({ navigation }) {
 
   const loadPosts = async () => {
     try {
-      // Get user's friends (accepted only)
-      const { data: friendships, error: friendError } = await supabase
-        .from('friendships')
-        .select('user_id, friend_id')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .eq('status', 'accepted');
-
-      if (friendError) throw friendError;
-
-      // Build list of friend IDs
-      const friendIds = friendships?.map(f => 
-        f.user_id === user.id ? f.friend_id : f.user_id
-      ) || [];
-
-      // Include current user in the list
-      const userIds = [user.id, ...friendIds];
-
-      console.log('Loading posts from users:', userIds);
-
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
-
-      // Get posts from friends + self, respecting privacy
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          users!posts_user_id_fkey (
-            id,
-            username,
-            profile_picture_url
-          ),
-          goals!posts_goal_id_fkey (
-            id,
-            title,
-            privacy
-          )
-        `)
-        .in('user_id', userIds)
-        .gte('created_at', twentyFourHoursAgo.toISOString())
-        .order('created_at', { ascending: false })
-        
+      const { posts: feedPosts, error } = await getFeedPosts(user.id);
 
       if (error) throw error;
 
-      // Filter out private posts from other users
-      const filteredPosts = data?.filter(post => {
-        // Always show own posts
-        if (post.user_id === user.id) return true;
-        
-        // Only show friends' posts if goal is not private
-        return post.goals?.privacy !== 'private';
-      }) || [];
-
-      console.log('✅ Loaded posts:', filteredPosts.length);
-      setPosts(filteredPosts);
+      console.log('✅ Loaded posts:', feedPosts?.length || 0);
+      setPosts(feedPosts || []);
     } catch (error) {
       console.error('Error loading posts:', error);
     } finally {
@@ -102,16 +53,11 @@ export default function Feed({ navigation }) {
   const loadGoals = async () => {
     setLoadingGoals(true);
     try {
-      const { data, error } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('completed', false)
-        .order('created_at', { ascending: false });
+      const { goals: activeGoals, error } = await getUserActiveGoals(user.id);
 
       if (error) throw error;
 
-      if (!data || data.length === 0) {
+      if (!activeGoals || activeGoals.length === 0) {
         Alert.alert(
           'No Goals',
           'You need to create a goal before posting',
@@ -120,7 +66,7 @@ export default function Feed({ navigation }) {
         return;
       }
 
-      setGoals(data);
+      setGoals(activeGoals);
       setShowGoalSelector(true);
     } catch (error) {
       console.error('Error loading goals:', error);

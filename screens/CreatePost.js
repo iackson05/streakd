@@ -12,6 +12,8 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X, FlipHorizontal } from 'lucide-react-native';
 import { supabase } from '../services/supabase';
+import { getUserGoals, updateGoalLastPostedAt } from '../services/goals';
+import { uploadPostImage, createPost } from '../services/posts';
 
 export default function CreatePostScreen({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
@@ -27,12 +29,8 @@ export default function CreatePostScreen({ navigation, route }) {
   useEffect(() => {
     const loadGoals = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      const { data, error } = await supabase
-        .from('goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+
+      const { goals: userGoals, error } = await getUserGoals(user.id);
 
       if (error) {
         console.error('Error loading goals:', error);
@@ -40,7 +38,7 @@ export default function CreatePostScreen({ navigation, route }) {
         return;
       }
 
-      if (!data || data.length === 0) {
+      if (!userGoals || userGoals.length === 0) {
         Alert.alert(
           'No Goals',
           'You need to create a goal before posting',
@@ -49,12 +47,12 @@ export default function CreatePostScreen({ navigation, route }) {
         return;
       }
 
-      setGoals(data);
-      
+      setGoals(userGoals);
+
       // If coming from goal page, pre-select that goal
       const preSelectedGoalId = route.params?.goalId;
       if (preSelectedGoalId) {
-        const goal = data.find(g => g.id === preSelectedGoalId);
+        const goal = userGoals.find(g => g.id === preSelectedGoalId);
         setSelectedGoal(goal);
         setShowGoalSelector(false);
       }
@@ -106,48 +104,18 @@ export default function CreatePostScreen({ navigation, route }) {
       const { data: { user } } = await supabase.auth.getUser();
 
       // Upload image to storage
-      const fileName = user.id + '/' + Date.now() + '.jpg';
-      const formData = new FormData();
-      formData.append('file', {
-        uri: photo.uri,
-        name: fileName,
-        type: 'image/jpeg',
-      });
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('post-images')
-        .upload(fileName, formData, {
-          contentType: 'image/jpeg',
-        });
+      const { publicUrl, error: uploadError } = await uploadPostImage(user.id, photo.uri);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('post-images')
-        .getPublicUrl(fileName);
-
-      const now = new Date().toISOString();
-
       // Create post in database
-      const { data, error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          goal_id: selectedGoal.id,
-          image_url: publicUrl,
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single();
+      const { post, error } = await createPost(user.id, selectedGoal.id, publicUrl);
 
       if (error) throw error;
 
-      const { error: updateError } = await supabase
-        .from('goals')
-        .update({ last_posted_at: now })
-        .eq('id', selectedGoal.id);
-    
+      // Update goal's last_posted_at
+      const { error: updateError } = await updateGoalLastPostedAt(selectedGoal.id);
+
       if (updateError) {
         console.error('Error updating goal last_posted_at:', updateError);
       }

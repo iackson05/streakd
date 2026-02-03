@@ -14,8 +14,12 @@ import {
 } from 'react-native';
 import { ArrowLeft, Search, UserPlus, UserMinus, Clock, Check, X } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { supabase } from '../services/supabase';
 import { useData } from '../contexts/DataContext';
+import {
+  removeFriend as removeFriendService,
+  acceptFriendRequest as acceptFriendRequestService,
+  rejectFriendRequest as rejectFriendRequestService
+} from '../services/users';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 
@@ -56,12 +60,7 @@ export default function Friends({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              const { error } = await supabase
-                .from('friendships')
-                .delete()
-                .or(
-                  `and(user_id.eq.${user.id},friend_id.eq.${friendId}),and(user_id.eq.${friendId},friend_id.eq.${user.id})`
-                );
+              const { error } = await removeFriendService(user.id, friendId);
 
               if (error) throw error;
 
@@ -81,14 +80,7 @@ export default function Friends({ navigation }) {
 
   const handleAcceptRequest = async (senderId, friendData) => {
     try {
-      const { error } = await supabase
-        .from('friendships')
-        .update({ 
-          status: 'accepted',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', senderId)
-        .eq('friend_id', user.id);
+      const { error } = await acceptFriendRequestService(senderId, user.id);
 
       if (error) throw error;
 
@@ -103,11 +95,7 @@ export default function Friends({ navigation }) {
 
   const handleRejectRequest = async (senderId) => {
     try {
-      const { error } = await supabase
-        .from('friendships')
-        .delete()
-        .eq('user_id', senderId)
-        .eq('friend_id', user.id);
+      const { error } = await rejectFriendRequestService(senderId, user.id);
 
       if (error) throw error;
 
