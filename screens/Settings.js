@@ -1,5 +1,4 @@
 import React from 'react';
-import { supabase } from '../services/supabase';
 import {
   View,
   Text,
@@ -8,6 +7,8 @@ import {
   StyleSheet,
   SafeAreaView,
   StatusBar,
+  Alert,
+  Linking,
 } from 'react-native';
 import {
   ArrowLeft,
@@ -18,51 +19,130 @@ import {
   HelpCircle,
   MessageSquare,
   ChevronRight,
-  LogOut
+  LogOut,
+  Trash2,
 } from 'lucide-react-native';
-
-const SETTINGS_SECTIONS = [
-  {
-    title: "Account",
-    items: [
-      { icon: User, label: "Edit Profile", description: "Update your info" },
-      { icon: Bell, label: "Notifications", description: "Manage alerts" },
-      { icon: Lock, label: "Privacy", description: "Control your data" }
-    ]
-  },
-  {
-    title: "Preferences",
-    items: [
-      { icon: Moon, label: "Appearance", description: "Dark mode settings" }
-    ]
-  },
-  {
-    title: "Support",
-    items: [
-      { icon: HelpCircle, label: "Help Center", description: "Get assistance" },
-      { icon: MessageSquare, label: "Send Feedback", description: "Share your thoughts" }
-    ]
-  }
-];
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Settings({ navigation }) {
+  const { user, signOut } = useAuth();
+
   const handleLogout = () => {
-    supabase.auth.signOut();
-    console.log('Logging out...');
+    Alert.alert(
+      'Log Out',
+      'Are you sure you want to log out?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Log Out',
+          style: 'destructive',
+          onPress: async () => {
+            await signOut();
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your data. This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Confirm Deletion',
+              'Type DELETE to confirm',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'I Understand',
+                  style: 'destructive',
+                  onPress: async () => {
+                    // Note: Full account deletion would require a server-side function
+                    // For now, sign out and show a message
+                    Alert.alert(
+                      'Contact Support',
+                      'To delete your account, please contact support@streakd.app'
+                    );
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
   };
 
   const handleSettingPress = (label) => {
-    console.log('Pressed:', label);
-    // TODO: Navigate to specific setting screens
+    switch (label) {
+      case 'Edit Profile':
+        navigation.navigate('EditProfile');
+        break;
+      case 'Notifications':
+        navigation.navigate('NotificationsSettings');
+        break;
+      case 'Privacy':
+        Alert.alert(
+          'Privacy',
+          'Your data is stored securely and never shared with third parties without your consent.',
+          [{ text: 'OK' }]
+        );
+        break;
+      case 'Appearance':
+        Alert.alert(
+          'Appearance',
+          'Dark mode is currently the only theme. More themes coming soon!',
+          [{ text: 'OK' }]
+        );
+        break;
+      case 'Help Center':
+        Linking.openURL('https://streakd.app/help');
+        break;
+      case 'Send Feedback':
+        Linking.openURL('mailto:feedback@streakd.app?subject=Streakd%20Feedback');
+        break;
+      default:
+        console.log('Pressed:', label);
+    }
   };
+
+  const SETTINGS_SECTIONS = [
+    {
+      title: 'Account',
+      items: [
+        { icon: User, label: 'Edit Profile', description: 'Update your info' },
+        { icon: Bell, label: 'Notifications', description: 'Manage alerts' },
+        { icon: Lock, label: 'Privacy', description: 'Control your data' },
+      ],
+    },
+    {
+      title: 'Preferences',
+      items: [
+        { icon: Moon, label: 'Appearance', description: 'Dark mode settings' },
+      ],
+    },
+    {
+      title: 'Support',
+      items: [
+        { icon: HelpCircle, label: 'Help Center', description: 'Get assistance' },
+        { icon: MessageSquare, label: 'Send Feedback', description: 'Share your thoughts' },
+      ],
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
@@ -72,25 +152,25 @@ export default function Settings({ navigation }) {
         <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        {SETTINGS_SECTIONS.map((section, sectionIndex) => (
+        {SETTINGS_SECTIONS.map((section) => (
           <View key={section.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
             <View style={styles.sectionCard}>
               {section.items.map((item, itemIndex) => {
                 const Icon = item.icon;
                 const isLast = itemIndex === section.items.length - 1;
-                
+
                 return (
                   <TouchableOpacity
                     key={item.label}
                     onPress={() => handleSettingPress(item.label)}
                     style={[
                       styles.settingItem,
-                      !isLast && styles.settingItemBorder
+                      !isLast && styles.settingItemBorder,
                     ]}
                   >
                     <View style={styles.settingIcon}>
@@ -102,10 +182,7 @@ export default function Settings({ navigation }) {
                         {item.description}
                       </Text>
                     </View>
-                    <ChevronRight 
-                      color="rgba(255,255,255,0.3)" 
-                      size={16} 
-                    />
+                    <ChevronRight color="rgba(255,255,255,0.3)" size={16} />
                   </TouchableOpacity>
                 );
               })}
@@ -113,11 +190,32 @@ export default function Settings({ navigation }) {
           </View>
         ))}
 
+        {/* Danger Zone */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>DANGER ZONE</Text>
+          <View style={styles.sectionCard}>
+            <TouchableOpacity
+              onPress={handleDeleteAccount}
+              style={styles.settingItem}
+            >
+              <View style={[styles.settingIcon, styles.dangerIcon]}>
+                <Trash2 color="#ff6b6b" size={16} />
+              </View>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, styles.dangerLabel]}>
+                  Delete Account
+                </Text>
+                <Text style={styles.settingDescription}>
+                  Permanently delete your account
+                </Text>
+              </View>
+              <ChevronRight color="rgba(255,107,107,0.5)" size={16} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Logout Button */}
-        <TouchableOpacity
-          onPress={handleLogout}
-          style={styles.logoutButton}
-        >
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
           <LogOut color="rgba(255,255,255,0.6)" size={16} />
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
@@ -208,6 +306,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dangerIcon: {
+    backgroundColor: 'rgba(255,107,107,0.1)',
+    borderColor: 'rgba(255,107,107,0.2)',
+  },
   settingInfo: {
     flex: 1,
   },
@@ -216,6 +318,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 2,
+  },
+  dangerLabel: {
+    color: '#ff6b6b',
   },
   settingDescription: {
     color: 'rgba(255,255,255,0.4)',

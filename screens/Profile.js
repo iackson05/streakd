@@ -17,15 +17,15 @@ import {
   RefreshControl,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X } from 'lucide-react-native';
+import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X, Trash2 } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { createGoal } from '../services/goals';
+import { createGoal, deleteGoal } from '../services/goals';
 
 export default function Profile({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
-  const { profileData, fetchProfileData, addGoal } = useData();
+  const { profileData, fetchProfileData, addGoal, removeGoal } = useData();
 
   // Goal creation modal state
   const [showCreateGoal, setShowCreateGoal] = useState(false);
@@ -108,6 +108,38 @@ export default function Profile({ navigation }) {
       goalName: goal.title,
       goalDescription: goal.description
     });
+  };
+
+  const handleDeleteGoal = (goal) => {
+    const postCount = profileData.posts.filter(p => p.goal_id === goal.id).length;
+
+    Alert.alert(
+      'Delete Goal',
+      postCount > 0
+        ? `This will delete "${goal.title}" and all ${postCount} associated post${postCount > 1 ? 's' : ''}. This action cannot be undone.`
+        : `Are you sure you want to delete "${goal.title}"?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await deleteGoal(goal.id, user.id);
+              if (error) throw error;
+
+              // Update cache
+              removeGoal(goal.id);
+
+              Alert.alert('Success', 'Goal deleted');
+            } catch (error) {
+              console.error('Error deleting goal:', error);
+              Alert.alert('Error', 'Failed to delete goal');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (authLoading) {
@@ -216,25 +248,32 @@ export default function Profile({ navigation }) {
           <View style={styles.goalsContainer}>
             {profileData.goals.filter(g => !g.completed).map((goal) => {
               const goalPosts = profileData.posts.filter(p => p.goal_id === goal.id).length;
-              
+
               return (
-                <TouchableOpacity
-                  key={goal.id}
-                  onPress={() => handleGoalPress(goal)}
-                  style={styles.goalCard}
-                >
-                  <View style={styles.goalHeader}>
-                    <Text style={styles.goalName}>{goal.title}</Text>
-                    <Text style={styles.goalProgress}>
-                      {goalPosts} {goalPosts === 1 ? 'post' : 'posts'}
-                    </Text>
-                  </View>
-                  {goal.description && (
-                    <Text style={styles.goalDescription} numberOfLines={1}>
-                      {goal.description}
-                    </Text>
-                  )}
-                </TouchableOpacity>
+                <View key={goal.id} style={styles.goalCard}>
+                  <TouchableOpacity
+                    onPress={() => handleGoalPress(goal)}
+                    style={styles.goalContent}
+                  >
+                    <View style={styles.goalHeader}>
+                      <Text style={styles.goalName}>{goal.title}</Text>
+                      <Text style={styles.goalProgress}>
+                        {goalPosts} {goalPosts === 1 ? 'post' : 'posts'}
+                      </Text>
+                    </View>
+                    {goal.description && (
+                      <Text style={styles.goalDescription} numberOfLines={1}>
+                        {goal.description}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleDeleteGoal(goal)}
+                    style={styles.goalDeleteButton}
+                  >
+                    <Trash2 color="rgba(255,255,255,0.4)" size={16} />
+                  </TouchableOpacity>
+                </View>
               );
             })}
           </View>
@@ -525,12 +564,22 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  goalContent: {
+    flex: 1,
     padding: 16,
   },
   goalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  goalDeleteButton: {
+    padding: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.05)',
   },
   goalName: {
     color: '#fff',

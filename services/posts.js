@@ -162,3 +162,26 @@ export const createPost = async (userId, goalId, imageUrl) => {
     return { post: null, error };
   }
 };
+
+/**
+ * Delete a post
+ * @param {string} postId - The post's ID
+ * @param {string} userId - The user's ID (for verification)
+ * @returns {Promise<{error: Error|null}>}
+ */
+export const deletePost = async (postId, userId) => {
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error deleting post:', error);
+    return { error };
+  }
+};

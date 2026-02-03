@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  Image, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  Image,
+  TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
+import { Trash2 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useData } from '../../contexts/DataContext';
 import { supabase } from '../../services/supabase';
+import { deletePost } from '../../services/posts';
 
 const REACTIONS = [
   { emoji: '🔥', key: 'reaction_fire' },
@@ -16,8 +20,9 @@ const REACTIONS = [
   { emoji: '❤️', key: 'reaction_heart' },
 ];
 
-export default function PostCard({ post }) {
+export default function PostCard({ post, onDelete }) {
   const { user } = useAuth();
+  const { removePost } = useData();
   const [userReaction, setUserReaction] = useState(null);
   const [localCounts, setLocalCounts] = useState({
     reaction_fire: post.reaction_fire ?? 0,
@@ -25,6 +30,10 @@ export default function PostCard({ post }) {
     reaction_party: post.reaction_party ?? 0,
     reaction_heart: post.reaction_heart ?? 0,
   });
+  const [deleting, setDeleting] = useState(false);
+
+  // Check if this is the current user's post
+  const isOwnPost = post.user_id === user?.id;
 
   useEffect(() => {
     loadUserReaction();
@@ -84,6 +93,44 @@ export default function PostCard({ post }) {
     }
   };
 
+  const handleDelete = () => {
+    Alert.alert(
+      'Delete Post',
+      'Are you sure you want to delete this post? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const { error } = await deletePost(post.id, user.id);
+              if (error) throw error;
+
+              // Update cache
+              removePost(post.id);
+
+              // Call parent callback if provided
+              if (onDelete) {
+                onDelete(post.id);
+              }
+            } catch (error) {
+              console.error('Error deleting post:', error);
+              Alert.alert('Error', 'Failed to delete post');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Don't render if deleted
+  if (deleting) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -106,6 +153,14 @@ export default function PostCard({ post }) {
                 <Text style={styles.goalText}>{post.goal}</Text>
               </View>
             </View>
+            {isOwnPost && (
+              <TouchableOpacity
+                onPress={handleDelete}
+                style={styles.deleteButton}
+              >
+                <Trash2 color="rgba(255,255,255,0.6)" size={16} />
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Bottom - Caption & Reactions */}
@@ -190,9 +245,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 16,
     left: 16,
+    right: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatar: {
     width: 40,

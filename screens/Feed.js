@@ -178,10 +178,11 @@ export default function Feed({ navigation }) {
         ) : (
           /* Posts */
           posts.map((post) => (
-            <PostCard 
-              key={post.id} 
+            <PostCard
+              key={post.id}
               post={{
                 id: post.id,
+                user_id: post.user_id,
                 username: post.users?.username || 'Unknown',
                 profile_picture_url: post.users?.profile_picture_url,
                 goal: post.goals?.title || 'Goal',
@@ -191,7 +192,10 @@ export default function Feed({ navigation }) {
                 reaction_fist: post.reaction_fist,
                 reaction_party: post.reaction_party,
                 reaction_heart: post.reaction_heart,
-              }} 
+              }}
+              onDelete={(postId) => {
+                setPosts(prev => prev.filter(p => p.id !== postId));
+              }}
             />
           ))
         )}

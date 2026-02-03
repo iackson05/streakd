@@ -14,9 +14,10 @@ export const AuthProvider = ({ children }) => {
       console.log('📱 Session on mount:', session ? 'Found' : 'None');
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadProfile(session.user.id);
+        loadUserProfile(session.user);
+      } else {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     // Listen for auth changes

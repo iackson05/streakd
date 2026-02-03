@@ -126,17 +126,24 @@ export default function GoalFeed({ route, navigation }) {
         {/* Posts */}
         {posts.length > 0 ? (
           posts.map((post) => (
-            <PostCard 
-              key={post.id} 
+            <PostCard
+              key={post.id}
               post={{
                 id: post.id,
+                user_id: post.user_id,
                 username: post.users?.username || 'Unknown',
+                profile_picture_url: post.users?.profile_picture_url,
                 goal: post.goals?.title || 'Goal',
                 image: post.image_url,
                 timestamp: formatTimestamp(post.created_at),
-                likes: 0, // TODO: Calculate from reactions
-                comments: 0, // TODO: Add when you implement comments
-              }} 
+                reaction_fire: post.reaction_fire,
+                reaction_fist: post.reaction_fist,
+                reaction_party: post.reaction_party,
+                reaction_heart: post.reaction_heart,
+              }}
+              onDelete={(postId) => {
+                setPosts(prev => prev.filter(p => p.id !== postId));
+              }}
             />
           ))
         ) : (

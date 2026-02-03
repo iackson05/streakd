@@ -101,3 +101,36 @@ export const updateGoalLastPostedAt = async (goalId) => {
     return { error };
   }
 };
+
+/**
+ * Delete a goal and all its associated posts
+ * @param {string} goalId - The goal's ID
+ * @param {string} userId - The user's ID (for verification)
+ * @returns {Promise<{error: Error|null}>}
+ */
+export const deleteGoal = async (goalId, userId) => {
+  try {
+    // First delete all posts associated with this goal
+    const { error: postsError } = await supabase
+      .from('posts')
+      .delete()
+      .eq('goal_id', goalId)
+      .eq('user_id', userId);
+
+    if (postsError) throw postsError;
+
+    // Then delete the goal itself
+    const { error } = await supabase
+      .from('goals')
+      .delete()
+      .eq('id', goalId)
+      .eq('user_id', userId);
+
+    if (error) throw error;
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error deleting goal:', error);
+    return { error };
+  }
+};

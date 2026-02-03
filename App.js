@@ -10,6 +10,8 @@ import { Platform } from 'react-native';
 import Feed from './screens/Feed';
 import Profile from './screens/Profile';
 import Settings from './screens/Settings';
+import EditProfile from './screens/EditProfile';
+import NotificationsSettings from './screens/NotificationsSettings';
 import AddFriends from './screens/AddFriends';
 import GoalFeed from './screens/GoalFeed';
 import LoginScreen from './screens/LoginScreen';
@@ -128,6 +130,8 @@ function AppContent() {
             <Stack.Screen name="Feed" component={Feed} />
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="Settings" component={Settings} />
+            <Stack.Screen name="EditProfile" component={EditProfile} />
+            <Stack.Screen name="NotificationsSettings" component={NotificationsSettings} />
             <Stack.Screen name="AddFriends" component={AddFriends} />
             <Stack.Screen name="GoalFeed" component={GoalFeed} />
             <Stack.Screen name="Friends" component={Friends} />
