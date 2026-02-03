@@ -10,7 +10,14 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check current session on mount
-    checkUser();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('📱 Session on mount:', session ? 'Found' : 'None');
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadProfile(session.user.id);
+      }
+      setLoading(false);
+    });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

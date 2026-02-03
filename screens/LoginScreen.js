@@ -39,8 +39,6 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      // Success! Navigate to main app
-      navigation.replace('Feed'); // Replace with your main screen
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
       console.error('Login error:', error);

@@ -28,12 +28,6 @@ export default function Feed({ navigation }) {
   const [loadingGoals, setLoadingGoals] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigation.replace('Login');
-    }
-  }, [authLoading, user, navigation]);
-
-  useEffect(() => {
     if (user) {
       loadPosts();
     }
@@ -157,11 +151,7 @@ export default function Feed({ navigation }) {
       </View>
     );
   }
-
-  if (!user) {
-    return null;
-  }
-
+  
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />

@@ -1,6 +1,9 @@
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators  } from '@react-navigation/stack';
 import { useEffect, useRef } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { DataProvider } from './contexts/DataContext';
+import { supabase } from './services/supabase';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
@@ -13,9 +16,7 @@ import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import CreatePost from './screens/CreatePost';
 import Friends from './screens/Friends';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { DataProvider } from './contexts/DataContext';
-import { supabase } from './services/supabase';
+
 
 const Stack = createStackNavigator();
 
@@ -30,7 +31,7 @@ Notifications.setNotificationHandler({
 
 // Inner component that has access to auth context
 function AppContent() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth(); // Added 'loading'
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -54,14 +55,14 @@ function AppContent() {
       // etc.
     });
 
-  return () => {
-  if (notificationListener.current) {
-    notificationListener.current.remove();
-  }
-  if (responseListener.current) {
-    responseListener.current.remove();
-    }
-  };
+    return () => {
+      if (notificationListener.current) {
+        notificationListener.current.remove();
+      }
+      if (responseListener.current) {
+        responseListener.current.remove();
+      }
+    };
   }, [user]);
 
   async function registerForPushNotifications(userId) {
@@ -113,18 +114,32 @@ function AppContent() {
     }
   }
 
+  // Show loading screen while checking auth
+  if (loading) {
+    return null; // Or add a proper loading screen component
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="SignUp" component={SignUpScreen} />
-        <Stack.Screen name="Feed" component={Feed} />
-        <Stack.Screen name="Profile" component={Profile} />
-        <Stack.Screen name="Settings" component={Settings} />
-        <Stack.Screen name="AddFriends" component={AddFriends} />
-        <Stack.Screen name="GoalFeed" component={GoalFeed} />
-        <Stack.Screen name="Friends" component={Friends} />
-        <Stack.Screen name="CreatePost" component={CreatePost} />
+        {user ? (
+          // Authenticated screens - only shown when user is logged in
+          <>
+            <Stack.Screen name="Feed" component={Feed} />
+            <Stack.Screen name="Profile" component={Profile} />
+            <Stack.Screen name="Settings" component={Settings} />
+            <Stack.Screen name="AddFriends" component={AddFriends} />
+            <Stack.Screen name="GoalFeed" component={GoalFeed} />
+            <Stack.Screen name="Friends" component={Friends} />
+            <Stack.Screen name="CreatePost" component={CreatePost} />
+          </>
+        ) : (
+          // Auth screens - only shown when user is NOT logged in
+          <>
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="SignUp" component={SignUpScreen} />
+          </>
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

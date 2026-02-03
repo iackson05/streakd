@@ -1,4 +1,5 @@
 import React from 'react';
+import { supabase } from '../services/supabase';
 import {
   View,
   Text,
@@ -46,7 +47,7 @@ const SETTINGS_SECTIONS = [
 
 export default function Settings({ navigation }) {
   const handleLogout = () => {
-    // TODO: Implement logout logic
+    supabase.auth.signOut();
     console.log('Logging out...');
   };
 
