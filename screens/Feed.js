@@ -16,12 +16,13 @@ import {
 import { Users, Plus, X } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
-import { getFeedPosts } from '../services/posts';
+import { getFeedPosts, getUserReactionsForPosts } from '../services/posts';
 import { getUserActiveGoals } from '../services/goals';
 
 export default function Feed({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
+  const [userReactions, setUserReactions] = useState({});
   const [loadingPosts, setLoadingPosts] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
@@ -41,6 +42,14 @@ export default function Feed({ navigation }) {
       if (error) throw error;
 
       console.log('✅ Loaded posts:', feedPosts?.length || 0);
+
+      // Batch fetch user reactions for all posts
+      if (feedPosts && feedPosts.length > 0) {
+        const postIds = feedPosts.map(p => p.id);
+        const { reactions } = await getUserReactionsForPosts(user.id, postIds);
+        setUserReactions(reactions);
+      }
+
       setPosts(feedPosts || []);
     } catch (error) {
       console.error('Error loading posts:', error);
@@ -186,6 +195,7 @@ export default function Feed({ navigation }) {
                 username: post.users?.username || 'Unknown',
                 profile_picture_url: post.users?.profile_picture_url,
                 goal: post.goals?.title || 'Goal',
+                streak_count: post.goals?.streak_count || 0,
                 image: post.image_url,
                 timestamp: formatTimestamp(post.created_at),
                 reaction_fire: post.reaction_fire,
@@ -193,6 +203,7 @@ export default function Feed({ navigation }) {
                 reaction_party: post.reaction_party,
                 reaction_heart: post.reaction_heart,
               }}
+              initialUserReaction={userReactions[post.id] || null}
               onDelete={(postId) => {
                 setPosts(prev => prev.filter(p => p.id !== postId));
               }}

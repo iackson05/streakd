@@ -12,7 +12,7 @@ import {
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X, FlipHorizontal } from 'lucide-react-native';
 import { supabase } from '../services/supabase';
-import { getUserGoals, updateGoalLastPostedAt } from '../services/goals';
+import { getUserGoals, incrementGoalStreak } from '../services/goals';
 import { uploadPostImage, createPost } from '../services/posts';
 
 export default function CreatePostScreen({ navigation, route }) {
@@ -113,11 +113,11 @@ export default function CreatePostScreen({ navigation, route }) {
 
       if (error) throw error;
 
-      // Update goal's last_posted_at
-      const { error: updateError } = await updateGoalLastPostedAt(selectedGoal.id);
+      // Increment streak count and update last_posted_at
+      const { error: streakError } = await incrementGoalStreak(selectedGoal.id);
 
-      if (updateError) {
-        console.error('Error updating goal last_posted_at:', updateError);
+      if (streakError) {
+        console.error('Error updating goal streak:', streakError);
       }
 
       Alert.alert('Success!', 'Post created', [

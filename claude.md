@@ -111,6 +111,7 @@ src/
 │   └── AuthContext.js   # User session management
 └── services/
     └── supabase.js      # Supabase client config
+    └── ...              # Supabase API calls (used in screen files)
 ```
 
 ## Developer Notes
@@ -128,7 +129,7 @@ src/
 - ✅ Scheduled notifications
 - ⏳ Post creation UI (needs updating)
 - ⏳ User creation UI (needs updating)
-- ⏳ Profile editing
+- ✅ Profile editing
 
 
 ## When Making Changes

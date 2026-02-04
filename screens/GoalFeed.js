@@ -12,22 +12,25 @@ import {
 } from 'react-native';
 import { ArrowLeft, Plus } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
-import { getGoalPosts } from '../services/posts';
+import { getGoalPosts, getUserReactionsForPosts } from '../services/posts';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function GoalFeed({ route, navigation }) {
+  const { user } = useAuth();
   const goalId = route?.params?.goalId;
   const goalDescription = route?.params?.goalDescription;
   const goalName = route?.params?.goalName;
 
   const [posts, setPosts] = useState([]);
+  const [userReactions, setUserReactions] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (goalId) {
+    if (goalId && user) {
       loadPosts();
     }
-  }, [goalId]);
+  }, [goalId, user]);
 
   const loadPosts = async () => {
     try {
@@ -36,6 +39,14 @@ export default function GoalFeed({ route, navigation }) {
       if (error) throw error;
 
       console.log('✅ Loaded goal posts:', goalPosts?.length || 0);
+
+      // Batch fetch user reactions for all posts
+      if (goalPosts && goalPosts.length > 0) {
+        const postIds = goalPosts.map(p => p.id);
+        const { reactions } = await getUserReactionsForPosts(user.id, postIds);
+        setUserReactions(reactions);
+      }
+
       setPosts(goalPosts || []);
     } catch (error) {
       console.error('Error loading goal posts:', error);
@@ -134,6 +145,7 @@ export default function GoalFeed({ route, navigation }) {
                 username: post.users?.username || 'Unknown',
                 profile_picture_url: post.users?.profile_picture_url,
                 goal: post.goals?.title || 'Goal',
+                streak_count: post.goals?.streak_count || 0,
                 image: post.image_url,
                 timestamp: formatTimestamp(post.created_at),
                 reaction_fire: post.reaction_fire,
@@ -141,6 +153,7 @@ export default function GoalFeed({ route, navigation }) {
                 reaction_party: post.reaction_party,
                 reaction_heart: post.reaction_heart,
               }}
+              initialUserReaction={userReactions[post.id] || null}
               onDelete={(postId) => {
                 setPosts(prev => prev.filter(p => p.id !== postId));
               }}

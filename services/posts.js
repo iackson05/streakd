@@ -40,7 +40,8 @@ export const getFeedPosts = async (userId) => {
         goals!posts_goal_id_fkey (
           id,
           title,
-          privacy
+          privacy,
+          streak_count
         )
       `)
       .in('user_id', userIds)
@@ -83,7 +84,8 @@ export const getGoalPosts = async (goalId) => {
         ),
         goals!posts_goal_id_fkey (
           id,
-          title
+          title,
+          streak_count
         )
       `)
       .eq('goal_id', goalId)
@@ -160,6 +162,39 @@ export const createPost = async (userId, goalId, imageUrl) => {
   } catch (error) {
     console.error('Error creating post:', error);
     return { post: null, error };
+  }
+};
+
+/**
+ * Batch fetch user reactions for multiple posts
+ * @param {string} userId - The current user's ID
+ * @param {string[]} postIds - Array of post IDs
+ * @returns {Promise<{reactions: Object, error: Error|null}>} - Object mapping postId to emoji
+ */
+export const getUserReactionsForPosts = async (userId, postIds) => {
+  if (!postIds || postIds.length === 0) {
+    return { reactions: {}, error: null };
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('reactions')
+      .select('post_id, react_emoji')
+      .eq('user_id_who_reacted', userId)
+      .in('post_id', postIds);
+
+    if (error) throw error;
+
+    // Convert to a map: { postId: emoji }
+    const reactions = {};
+    data?.forEach(r => {
+      reactions[r.post_id] = r.react_emoji;
+    });
+
+    return { reactions, error: null };
+  } catch (error) {
+    console.error('Error fetching user reactions:', error);
+    return { reactions: {}, error };
   }
 };
 

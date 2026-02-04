@@ -11,7 +11,7 @@ export const DataProvider = ({ children }) => {
   const [profileData, setProfileData] = useState({
     goals: [],
     posts: [],
-    stats: { totalGoals: 0, currentStreak: 0, totalDays: 0 },
+    stats: { totalPosts: 0, daysOnStreakd: 0, friendCount: 0 },
     lastFetch: null,
     loading: false,
   });
@@ -49,7 +49,7 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({ ...prev, loading: true }));
 
     try {
-      const [goalsResult, postsResult] = await Promise.all([
+      const [goalsResult, postsResult, userResult, friendsResult] = await Promise.all([
         supabase
           .from('goals')
           .select('*')
@@ -59,7 +59,17 @@ export const DataProvider = ({ children }) => {
           .from('posts')
           .select('*, goals(title)')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('users')
+          .select('created_at')
+          .eq('id', user.id)
+          .single(),
+        supabase
+          .from('friendships')
+          .select('id')
+          .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
+          .eq('status', 'accepted')
       ]);
 
       if (goalsResult.error) throw goalsResult.error;
@@ -67,9 +77,11 @@ export const DataProvider = ({ children }) => {
 
       const goals = goalsResult.data || [];
       const posts = postsResult.data || [];
+      const userCreatedAt = userResult.data?.created_at;
+      const friendCount = friendsResult.data?.length || 0;
 
       // Calculate stats
-      const stats = calculateStats(goals, posts);
+      const stats = calculateStats(posts, userCreatedAt, friendCount);
 
       const newData = {
         goals,
@@ -230,7 +242,6 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({
       ...prev,
       goals: [goal, ...prev.goals],
-      stats: { ...prev.stats, totalGoals: prev.stats.totalGoals + 1 },
     }));
   };
 
@@ -238,7 +249,6 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({
       ...prev,
       goals: prev.goals.filter(g => g.id !== goalId),
-      stats: { ...prev.stats, totalGoals: Math.max(0, prev.stats.totalGoals - 1) },
     }));
   };
 
@@ -247,9 +257,9 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({
       ...prev,
       posts: [post, ...prev.posts],
-      stats: { ...prev.stats, totalDays: prev.stats.totalDays + 1 },
+      stats: { ...prev.stats, totalPosts: prev.stats.totalPosts + 1 },
     }));
-    
+
     // Add to feed
     setFeedData(prev => ({
       ...prev,
@@ -261,8 +271,9 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({
       ...prev,
       posts: prev.posts.filter(p => p.id !== postId),
+      stats: { ...prev.stats, totalPosts: Math.max(0, prev.stats.totalPosts - 1) },
     }));
-    
+
     setFeedData(prev => ({
       ...prev,
       posts: prev.posts.filter(p => p.id !== postId),
@@ -348,15 +359,21 @@ export const useData = () => {
 };
 
 // Helper function
-function calculateStats(goals, posts) {
-  const activeGoals = goals?.filter(g => !g.completed).length || 0;
-  const uniqueDays = new Set(
-    posts?.map(p => new Date(p.created_at).toDateString())
-  ).size;
-  
+function calculateStats(posts, userCreatedAt, friendCount) {
+  const totalPosts = posts?.length || 0;
+
+  // Calculate days since signup
+  let daysOnStreakd = 0;
+  if (userCreatedAt) {
+    const signupDate = new Date(userCreatedAt);
+    const today = new Date();
+    const diffTime = Math.abs(today - signupDate);
+    daysOnStreakd = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  }
+
   return {
-    totalGoals: activeGoals,
-    currentStreak: 0, // Implement streak calculation
-    totalDays: uniqueDays,
+    totalPosts,
+    daysOnStreakd,
+    friendCount,
   };
 }

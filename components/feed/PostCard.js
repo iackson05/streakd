@@ -20,10 +20,10 @@ const REACTIONS = [
   { emoji: '❤️', key: 'reaction_heart' },
 ];
 
-export default function PostCard({ post, onDelete }) {
+export default function PostCard({ post, onDelete, initialUserReaction }) {
   const { user } = useAuth();
   const { removePost } = useData();
-  const [userReaction, setUserReaction] = useState(null);
+  const [userReaction, setUserReaction] = useState(initialUserReaction);
   const [localCounts, setLocalCounts] = useState({
     reaction_fire: post.reaction_fire ?? 0,
     reaction_fist: post.reaction_fist ?? 0,
@@ -35,19 +35,28 @@ export default function PostCard({ post, onDelete }) {
   // Check if this is the current user's post
   const isOwnPost = post.user_id === user?.id;
 
+  // Only fetch reaction if not provided (for backwards compatibility)
   useEffect(() => {
-    loadUserReaction();
-  }, [post.id]);
+    if (initialUserReaction === undefined) {
+      loadUserReaction();
+    }
+  }, [post.id, initialUserReaction]);
 
   useEffect(() => {
-  setLocalCounts({
-    reaction_fire: post.reaction_fire ?? 0,
-    reaction_fist: post.reaction_fist ?? 0,
-    reaction_party: post.reaction_party ?? 0,
-    reaction_heart: post.reaction_heart ?? 0,
-  });
+    setLocalCounts({
+      reaction_fire: post.reaction_fire ?? 0,
+      reaction_fist: post.reaction_fist ?? 0,
+      reaction_party: post.reaction_party ?? 0,
+      reaction_heart: post.reaction_heart ?? 0,
+    });
   }, [post.id, post.reaction_fire, post.reaction_fist, post.reaction_party, post.reaction_heart]);
 
+  // Update userReaction when initialUserReaction changes
+  useEffect(() => {
+    if (initialUserReaction !== undefined) {
+      setUserReaction(initialUserReaction);
+    }
+  }, [initialUserReaction]);
 
   const loadUserReaction = async () => {
     try {
@@ -59,7 +68,7 @@ export default function PostCard({ post, onDelete }) {
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
-      
+
       setUserReaction(data?.react_emoji || null);
     } catch (error) {
       console.error('Error loading user reaction:', error);
@@ -151,6 +160,9 @@ export default function PostCard({ post, onDelete }) {
               <Text style={styles.username}>{post.username}</Text>
               <View style={styles.goalRow}>
                 <Text style={styles.goalText}>{post.goal}</Text>
+                {post.streak_count > 0 && (
+                  <Text style={styles.streakText}>{post.streak_count} 🔥</Text>
+                )}
               </View>
             </View>
             {isOwnPost && (
@@ -284,6 +296,11 @@ const styles = StyleSheet.create({
   goalText: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 12,
+  },
+  streakText: {
+    color: 'rgba(255,200,100,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
   },
   bottomSection: {
     position: 'absolute',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -15,13 +15,105 @@ import {
   KeyboardAvoidingView,
   Platform,
   RefreshControl,
+  Animated,
 } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import Slider from '@react-native-community/slider';
-import { ArrowLeft, Settings, Target, Flame, Calendar, Plus, X, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Settings, Camera, Calendar, Users as UsersIcon, Plus, X, Trash2, Lock, Users } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { createGoal, deleteGoal } from '../services/goals';
+
+const MAX_ACTIVE_GOALS = 3;
+
+// Swipeable Goal Card Component
+function SwipeableGoalCard({ goal, postCount, onPress, onDelete }) {
+  const swipeableRef = useRef(null);
+
+  const renderRightActions = (progress, dragX) => {
+    const scale = dragX.interpolate({
+      inputRange: [-80, 0],
+      outputRange: [1, 0.5],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = dragX.interpolate({
+      inputRange: [-80, -20, 0],
+      outputRange: [1, 0.5, 0],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <TouchableOpacity
+        style={styles.deleteAction}
+        onPress={() => {
+          swipeableRef.current?.close();
+          onDelete(goal);
+        }}
+      >
+        <Animated.View style={[styles.deleteActionContent, { opacity, transform: [{ scale }] }]}>
+          <Trash2 color="#fff" size={20} />
+        </Animated.View>
+      </TouchableOpacity>
+    );
+  };
+
+  const handleSwipeOpen = (direction) => {
+    if (direction === 'right') {
+      // User swiped left to reveal right action - trigger delete
+      swipeableRef.current?.close();
+      onDelete(goal);
+    }
+  };
+
+  return (
+    <Swipeable
+      ref={swipeableRef}
+      renderRightActions={renderRightActions}
+      onSwipeableOpen={handleSwipeOpen}
+      rightThreshold={60}
+      overshootRight={false}
+      friction={1}
+    >
+      <TouchableOpacity
+        onPress={onPress}
+        style={styles.goalCard}
+        activeOpacity={0.7}
+      >
+        <View style={styles.goalContent}>
+          <View style={styles.goalHeader}>
+            <View style={styles.goalTitleRow}>
+              <Text style={styles.goalName}>{goal.title}</Text>
+              {goal.streak_count > 0 && (
+                <Text style={styles.goalStreak}>{goal.streak_count} 🔥</Text>
+              )}
+            </View>
+            <View style={styles.goalMeta}>
+              {/* Privacy tag */}
+              <View style={[
+                styles.privacyTag,
+                goal.privacy === 'private' ? styles.privacyTagPrivate : styles.privacyTagFriends
+              ]}>
+                {goal.privacy === 'private' ? (
+                  <Lock color="rgba(255,255,255,0.7)" size={10} />
+                ) : (
+                  <Users color="rgba(255,255,255,0.7)" size={10} />
+                )}
+                <Text style={styles.privacyTagText}>
+                  {goal.privacy === 'private' ? 'Private' : 'Friends'}
+                </Text>
+              </View>
+              <Text style={styles.goalProgress}>
+                {postCount} {postCount === 1 ? 'post' : 'posts'}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Swipeable>
+  );
+}
 
 export default function Profile({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -68,6 +160,16 @@ export default function Profile({ navigation }) {
   const handleCreateGoal = async () => {
     if (!newGoalTitle.trim()) {
       Alert.alert('Missing Title', 'Please enter a goal title');
+      return;
+    }
+
+    // Check goal limit
+    const activeGoals = profileData.goals.filter(g => !g.completed);
+    if (activeGoals.length >= MAX_ACTIVE_GOALS) {
+      Alert.alert(
+        'Goal Limit Reached',
+        `You can only have ${MAX_ACTIVE_GOALS} active goals at a time. Complete or delete an existing goal to create a new one.`
+      );
       return;
     }
 
@@ -198,48 +300,56 @@ export default function Profile({ navigation }) {
         {/* Profile Card */}
         <View style={styles.profileCard}>
           <Image
-            source={{ 
-              uri: profile.profile_picture_url || 
+            source={{
+              uri: profile.profile_picture_url ||
                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`
             }}
             style={styles.avatar}
           />
           <Text style={styles.name}>{profile.username}</Text>
           <Text style={styles.username}>@{profile.username}</Text>
-          <Text style={styles.email}>{profile.email}</Text>
 
           {/* Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Target color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{profileData.stats.totalGoals}</Text>
-              <Text style={styles.statLabel}>Goals</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Flame color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{profileData.stats.currentStreak}</Text>
-              <Text style={styles.statLabel}>Streak</Text>
+              <Camera color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
+              <Text style={styles.statValue}>{profileData.stats.totalPosts}</Text>
+              <Text style={styles.statLabel}>Posts</Text>
             </View>
             <View style={styles.statItem}>
               <Calendar color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{profileData.stats.totalDays}</Text>
-              <Text style={styles.statLabel}>Total Days</Text>
+              <Text style={styles.statValue}>{profileData.stats.daysOnStreakd}</Text>
+              <Text style={styles.statLabel}>Days</Text>
+            </View>
+            <View style={styles.statItem}>
+              <UsersIcon color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
+              <Text style={styles.statValue}>{profileData.stats.friendCount}</Text>
+              <Text style={styles.statLabel}>Friends</Text>
             </View>
           </View>
         </View>
 
         {/* Active Goals Header with Add Button */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Active Goals</Text>
-          <TouchableOpacity 
-            style={styles.addGoalButton}
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Active Goals</Text>
+            <Text style={styles.goalCount}>
+              {profileData.goals.filter(g => !g.completed).length}/{MAX_ACTIVE_GOALS}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={[
+              styles.addGoalButton,
+              profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS && styles.addGoalButtonDisabled
+            ]}
             onPress={() => setShowCreateGoal(true)}
+            disabled={profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS}
           >
-            <Plus color="#fff" size={16} />
+            <Plus color={profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS ? "rgba(255,255,255,0.3)" : "#fff"} size={16} />
           </TouchableOpacity>
         </View>
 
-        {profileData.goals.length === 0 ? (
+        {profileData.goals.filter(g => !g.completed).length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No active goals</Text>
             <Text style={styles.emptySubtext}>Create your first goal to get started!</Text>
@@ -250,41 +360,18 @@ export default function Profile({ navigation }) {
               const goalPosts = profileData.posts.filter(p => p.goal_id === goal.id).length;
 
               return (
-                <View key={goal.id} style={styles.goalCard}>
-                  <TouchableOpacity
-                    onPress={() => handleGoalPress(goal)}
-                    style={styles.goalContent}
-                  >
-                    <View style={styles.goalHeader}>
-                      <Text style={styles.goalName}>{goal.title}</Text>
-                      <Text style={styles.goalProgress}>
-                        {goalPosts} {goalPosts === 1 ? 'post' : 'posts'}
-                      </Text>
-                    </View>
-                    {goal.description && (
-                      <Text style={styles.goalDescription} numberOfLines={1}>
-                        {goal.description}
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => handleDeleteGoal(goal)}
-                    style={styles.goalDeleteButton}
-                  >
-                    <Trash2 color="rgba(255,255,255,0.4)" size={16} />
-                  </TouchableOpacity>
-                </View>
+                <SwipeableGoalCard
+                  key={goal.id}
+                  goal={goal}
+                  postCount={goalPosts}
+                  onPress={() => handleGoalPress(goal)}
+                  onDelete={handleDeleteGoal}
+                />
               );
             })}
           </View>
         )}
 
-        {/* Total Posts */}
-        <Text style={styles.sectionTitle}>Activity</Text>
-        <View style={styles.activityCard}>
-          <Text style={styles.activityValue}>{profileData.posts.length}</Text>
-          <Text style={styles.activityLabel}>Total Posts</Text>
-        </View>
       </ScrollView>
 
       {/* Create Goal Modal */}
@@ -508,11 +595,6 @@ const styles = StyleSheet.create({
   username: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 14,
-    marginBottom: 4,
-  },
-  email: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
     marginBottom: 24,
   },
   statsRow: {
@@ -542,10 +624,19 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 4,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sectionTitle: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
     fontWeight: '500',
+  },
+  goalCount: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
   },
   addGoalButton: {
     width: 32,
@@ -555,31 +646,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  addGoalButtonDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
   goalsContainer: {
     gap: 12,
     marginBottom: 32,
+  },
+  deleteAction: {
+    backgroundColor: '#dc2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 70,
+    borderRadius: 12,
+    marginLeft: 8,
+  },
+  deleteActionContent: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   goalCard: {
     backgroundColor: '#0A0A0A',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   goalContent: {
-    flex: 1,
     padding: 16,
   },
   goalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    gap: 8,
   },
-  goalDeleteButton: {
-    padding: 16,
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.05)',
+  goalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   goalName: {
     color: '#fff',
@@ -587,14 +688,39 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+  goalStreak: {
+    color: 'rgba(255,200,100,0.9)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  goalMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+  },
+  privacyTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  privacyTagPrivate: {
+    backgroundColor: 'rgba(139, 92, 246, 0.2)',
+  },
+  privacyTagFriends: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+  },
+  privacyTagText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10,
+    fontWeight: '500',
+  },
   goalProgress: {
     color: 'rgba(255,255,255,0.5)',
     fontSize: 12,
-  },
-  goalDescription: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
-    marginTop: 8,
   },
   emptyState: {
     backgroundColor: '#0A0A0A',
@@ -615,24 +741,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
     textAlign: 'center',
-  },
-  activityCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 24,
-    alignItems: 'center',
-  },
-  activityValue: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  activityLabel: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
   },
   // Modal Styles
   modalOverlay: {

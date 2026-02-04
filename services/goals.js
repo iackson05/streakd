@@ -103,6 +103,45 @@ export const updateGoalLastPostedAt = async (goalId) => {
 };
 
 /**
+ * Increment a goal's streak count and update last_posted_at
+ * Call this when a user creates a post for a goal
+ * @param {string} goalId - The goal's ID
+ * @returns {Promise<{goal: Object|null, error: Error|null}>}
+ */
+export const incrementGoalStreak = async (goalId) => {
+  try {
+    // First get current streak_count
+    const { data: currentGoal, error: fetchError } = await supabase
+      .from('goals')
+      .select('streak_count')
+      .eq('id', goalId)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    const newStreakCount = (currentGoal?.streak_count || 0) + 1;
+
+    // Update streak_count and last_posted_at
+    const { data, error } = await supabase
+      .from('goals')
+      .update({
+        streak_count: newStreakCount,
+        last_posted_at: new Date().toISOString(),
+      })
+      .eq('id', goalId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { goal: data, error: null };
+  } catch (error) {
+    console.error('Error incrementing goal streak:', error);
+    return { goal: null, error };
+  }
+};
+
+/**
  * Delete a goal and all its associated posts
  * @param {string} goalId - The goal's ID
  * @param {string} userId - The user's ID (for verification)
