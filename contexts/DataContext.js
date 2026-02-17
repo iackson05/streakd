@@ -252,6 +252,35 @@ export const DataProvider = ({ children }) => {
     }));
   };
 
+  const markGoalCompleted = (goalId) => {
+    setProfileData(prev => {
+      // Mark goal as completed
+      const updatedGoals = prev.goals.map(g =>
+        g.id === goalId ? { ...g, completed: true } : g
+      );
+
+      // Remove all posts for this goal
+      const updatedPosts = prev.posts.filter(p => p.goal_id !== goalId);
+      const removedPostCount = prev.posts.length - updatedPosts.length;
+
+      return {
+        ...prev,
+        goals: updatedGoals,
+        posts: updatedPosts,
+        stats: {
+          ...prev.stats,
+          totalPosts: Math.max(0, prev.stats.totalPosts - removedPostCount),
+        },
+      };
+    });
+
+    // Also remove from feed
+    setFeedData(prev => ({
+      ...prev,
+      posts: prev.posts.filter(p => p.goal_id !== goalId),
+    }));
+  };
+
   const addPost = (post) => {
     // Add to profile
     setProfileData(prev => ({
@@ -328,6 +357,7 @@ export const DataProvider = ({ children }) => {
     invalidateProfile,
     addGoal,
     removeGoal,
+    markGoalCompleted,
     addPost,
     removePost,
     

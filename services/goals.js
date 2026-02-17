@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { deletePostsForGoal } from './posts';
 
 /**
  * Get all goals for a user
@@ -142,21 +143,20 @@ export const incrementGoalStreak = async (goalId) => {
 };
 
 /**
- * Delete a goal and all its associated posts
+ * Delete a goal and all its associated posts (including images)
  * @param {string} goalId - The goal's ID
  * @param {string} userId - The user's ID (for verification)
  * @returns {Promise<{error: Error|null}>}
  */
 export const deleteGoal = async (goalId, userId) => {
   try {
-    // First delete all posts associated with this goal
-    const { error: postsError } = await supabase
-      .from('posts')
-      .delete()
-      .eq('goal_id', goalId)
-      .eq('user_id', userId);
+    // Delete all posts and their images
+    const { error: postsError } = await deletePostsForGoal(goalId, userId);
 
-    if (postsError) throw postsError;
+    if (postsError) {
+      console.error('Error deleting posts for goal:', postsError);
+      // Continue anyway - try to delete the goal
+    }
 
     // Then delete the goal itself
     const { error } = await supabase
@@ -171,5 +171,40 @@ export const deleteGoal = async (goalId, userId) => {
   } catch (error) {
     console.error('Error deleting goal:', error);
     return { error };
+  }
+};
+
+/**
+ * Mark a goal as completed
+ * Deletes all associated posts and images, but keeps the goal record
+ * @param {string} goalId - The goal's ID
+ * @param {string} userId - The user's ID (for verification)
+ * @returns {Promise<{goal: Object|null, deletedPostCount: number, error: Error|null}>}
+ */
+export const completeGoal = async (goalId, userId) => {
+  try {
+    // Delete all posts and their images
+    const { deletedCount, error: postsError } = await deletePostsForGoal(goalId, userId);
+
+    if (postsError) {
+      console.error('Error deleting posts for goal:', postsError);
+      // Continue anyway - still mark goal as completed
+    }
+
+    // Mark the goal as completed
+    const { data: goal, error } = await supabase
+      .from('goals')
+      .update({ completed: true })
+      .eq('id', goalId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return { goal, deletedPostCount: deletedCount, error: null };
+  } catch (error) {
+    console.error('Error completing goal:', error);
+    return { goal: null, deletedPostCount: 0, error };
   }
 };

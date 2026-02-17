@@ -27,6 +27,9 @@ React Native mobile app for goal accountability with friends. Users create goals
 - description (text)
 - completed (boolean)
 - privacy (enum: 'public', 'friends', 'private')
+- streak_count (int, default 0)
+- streak_interval (int) - days between required posts
+- last_posted_at (timestamp)
 - created_at (timestamp)
 
 ### posts
@@ -79,6 +82,18 @@ React Native mobile app for goal accountability with friends. Users create goals
 - Search users by username
 - Status-based filtering (pending vs accepted)
 
+### Goals System
+- Max 3 active goals per user
+- Privacy tags (Private/Friends) displayed on goal cards
+- Swipe-to-delete using `react-native-gesture-handler` Swipeable
+- Streak count displayed with 🔥 emoji on goals and posts
+
+### Streak System
+- `streak_count` incremented via `incrementGoalStreak()` when user posts
+- `last_posted_at` updated on each post
+- Streak reset to 0 handled by `send-streak-notification` edge function if deadline passes
+- `streak_interval` defines days between required posts
+
 ## Important Implementation Details
 
 ### RLS (Row Level Security)
@@ -90,12 +105,15 @@ React Native mobile app for goal accountability with friends. Users create goals
 - Local state for reaction counts (avoid re-fetching entire post)
 - Batch queries using Supabase joins
 - Filter privacy client-side after fetching (simpler than complex SQL)
+- Batch fetch user reactions with `getUserReactionsForPosts()` to avoid N+1 queries
+- Friend count computed from friendships table (not stored as column)
 
 ### Common Gotchas
 - Always check `user` exists before Supabase calls
 - Use `maybeSingle()` when expecting 0 or 1 results
 - Handle `PGRST116` error code (no rows returned)
 - Image URLs need proper error handling (broken/missing images)
+- App.js must wrap with `GestureHandlerRootView` for swipe gestures to work
 
 ## File Structure
 ```
@@ -127,9 +145,15 @@ src/
 - ✅ Friends system
 - ✅ Goal privacy controls
 - ✅ Scheduled notifications
-- ⏳ Post creation UI (needs updating)
-- ⏳ User creation UI (needs updating)
 - ✅ Profile editing
+- ✅ Streak display (on posts and goals)
+- ✅ Swipe-to-delete goals
+- ✅ 3 active goals limit
+- ✅ Privacy tags on goals
+- ⏳ Post creation UI (camera preview size doesn't match PostCard aspect ratio)
+- ⏳ User onboarding (no walkthrough, profile setup, or friend discovery for new users)
+- ⏳ Goal completion flow (no way to mark goals as completed)
+- ⏳ Empty states polish (better UX for no goals, no friends, etc.)
 
 
 ## When Making Changes

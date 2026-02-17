@@ -199,13 +199,73 @@ export const getUserReactionsForPosts = async (userId, postIds) => {
 };
 
 /**
- * Delete a post
+ * Extract storage path from a public URL
+ * @param {string} publicUrl - The full public URL of the image
+ * @returns {string|null} - The storage path (e.g., "userId/timestamp.jpg")
+ */
+const extractStoragePath = (publicUrl) => {
+  if (!publicUrl) return null;
+
+  // URL format: https://xxx.supabase.co/storage/v1/object/public/post-images/userId/timestamp.jpg
+  const match = publicUrl.match(/\/post-images\/(.+)$/);
+  return match ? match[1] : null;
+};
+
+/**
+ * Delete an image from storage
+ * @param {string} imageUrl - The public URL of the image
+ * @returns {Promise<{error: Error|null}>}
+ */
+export const deletePostImage = async (imageUrl) => {
+  try {
+    const storagePath = extractStoragePath(imageUrl);
+    if (!storagePath) {
+      console.warn('Could not extract storage path from URL:', imageUrl);
+      return { error: null }; // Not a critical error
+    }
+
+    const { error } = await supabase.storage
+      .from('post-images')
+      .remove([storagePath]);
+
+    if (error) {
+      console.error('Error deleting image from storage:', error);
+      // Don't throw - image deletion failure shouldn't block post deletion
+    }
+
+    return { error: null };
+  } catch (error) {
+    console.error('Error in deletePostImage:', error);
+    return { error };
+  }
+};
+
+/**
+ * Delete a post and its associated image
  * @param {string} postId - The post's ID
  * @param {string} userId - The user's ID (for verification)
  * @returns {Promise<{error: Error|null}>}
  */
 export const deletePost = async (postId, userId) => {
   try {
+    // First, get the post to retrieve the image URL
+    const { data: post, error: fetchError } = await supabase
+      .from('posts')
+      .select('image_url')
+      .eq('id', postId)
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') {
+      throw fetchError;
+    }
+
+    // Delete the image from storage (if post exists)
+    if (post?.image_url) {
+      await deletePostImage(post.image_url);
+    }
+
+    // Delete the post record
     const { error } = await supabase
       .from('posts')
       .delete()
@@ -218,5 +278,58 @@ export const deletePost = async (postId, userId) => {
   } catch (error) {
     console.error('Error deleting post:', error);
     return { error };
+  }
+};
+
+/**
+ * Delete all posts for a goal and their images
+ * @param {string} goalId - The goal's ID
+ * @param {string} userId - The user's ID (for verification)
+ * @returns {Promise<{deletedCount: number, error: Error|null}>}
+ */
+export const deletePostsForGoal = async (goalId, userId) => {
+  try {
+    // Get all posts for this goal
+    const { data: posts, error: fetchError } = await supabase
+      .from('posts')
+      .select('id, image_url')
+      .eq('goal_id', goalId)
+      .eq('user_id', userId);
+
+    if (fetchError) throw fetchError;
+
+    const deletedCount = posts?.length || 0;
+
+    // Delete all images from storage
+    if (posts && posts.length > 0) {
+      const imagePaths = posts
+        .map(p => extractStoragePath(p.image_url))
+        .filter(Boolean);
+
+      if (imagePaths.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from('post-images')
+          .remove(imagePaths);
+
+        if (storageError) {
+          console.error('Error deleting images from storage:', storageError);
+          // Continue anyway - don't block post deletion
+        }
+      }
+    }
+
+    // Delete all post records
+    const { error: deleteError } = await supabase
+      .from('posts')
+      .delete()
+      .eq('goal_id', goalId)
+      .eq('user_id', userId);
+
+    if (deleteError) throw deleteError;
+
+    return { deletedCount, error: null };
+  } catch (error) {
+    console.error('Error deleting posts for goal:', error);
+    return { deletedCount: 0, error };
   }
 };

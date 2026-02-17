@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import Slider from '@react-native-community/slider';
-import { ArrowLeft, Settings, Camera, Calendar, Users as UsersIcon, Plus, X, Trash2, Lock, Users } from 'lucide-react-native';
+import { ArrowLeft, Settings, Camera, Calendar, Users as UsersIcon, Plus, X, Trash2, Lock, Users, Trophy } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
@@ -317,9 +317,9 @@ export default function Profile({ navigation }) {
               <Text style={styles.statLabel}>Posts</Text>
             </View>
             <View style={styles.statItem}>
-              <Calendar color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
-              <Text style={styles.statValue}>{profileData.stats.daysOnStreakd}</Text>
-              <Text style={styles.statLabel}>Days</Text>
+              <Trophy color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
+              <Text style={styles.statValue}>{profileData.goals.filter(g => g.completed).length}</Text>
+              <Text style={styles.statLabel}>Completed</Text>
             </View>
             <View style={styles.statItem}>
               <UsersIcon color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />

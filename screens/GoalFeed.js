@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
-import { ArrowLeft, Plus } from 'lucide-react-native';
+import { ArrowLeft, Plus, Check } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { getGoalPosts, getUserReactionsForPosts } from '../services/posts';
+import { completeGoal } from '../services/goals';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 
 export default function GoalFeed({ route, navigation }) {
   const { user } = useAuth();
+  const { markGoalCompleted } = useData();
   const goalId = route?.params?.goalId;
   const goalDescription = route?.params?.goalDescription;
   const goalName = route?.params?.goalName;
@@ -25,6 +29,7 @@ export default function GoalFeed({ route, navigation }) {
   const [userReactions, setUserReactions] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [completing, setCompleting] = useState(false);
 
   useEffect(() => {
     if (goalId && user) {
@@ -66,6 +71,45 @@ export default function GoalFeed({ route, navigation }) {
     navigation.navigate('CreatePost', { goalId });
   };
 
+  const handleCompleteGoal = () => {
+    const postCount = posts.length;
+
+    Alert.alert(
+      'Complete Goal',
+      postCount > 0
+        ? `Congratulations on completing "${goalName}"!\n\nThis will permanently delete all ${postCount} post${postCount > 1 ? 's' : ''} for this goal. Save any photos you want to keep to your device before continuing.`
+        : `Mark "${goalName}" as completed?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete Goal',
+          style: 'default',
+          onPress: async () => {
+            setCompleting(true);
+            try {
+              const { error } = await completeGoal(goalId, user.id);
+              if (error) throw error;
+
+              // Update cache
+              markGoalCompleted(goalId);
+
+              Alert.alert(
+                'Goal Completed!',
+                'Great job! Your goal has been marked as completed.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (error) {
+              console.error('Error completing goal:', error);
+              Alert.alert('Error', 'Failed to complete goal. Please try again.');
+            } finally {
+              setCompleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const formatTimestamp = (timestamp) => {
     const now = new Date();
     const posted = new Date(timestamp);
@@ -94,19 +138,32 @@ export default function GoalFeed({ route, navigation }) {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
           <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{goalName || 'Goal Feed'}</Text>
-        <TouchableOpacity 
-          onPress={handleAddPost}
-          style={styles.addButton}
-        >
-          <Plus color="rgba(255,255,255,0.7)" size={20} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            onPress={handleCompleteGoal}
+            style={styles.completeButton}
+            disabled={completing}
+          >
+            {completing ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Check color="#fff" size={18} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleAddPost}
+            style={styles.addButton}
+          >
+            <Plus color="rgba(255,255,255,0.7)" size={20} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Content */}
@@ -230,6 +287,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
     textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  completeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#22c55e',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   addButton: {
     width: 40,
