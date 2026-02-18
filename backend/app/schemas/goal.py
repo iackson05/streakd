@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -7,7 +8,7 @@ from pydantic import BaseModel
 class GoalCreate(BaseModel):
     title: str
     description: str | None = None
-    privacy: str = "public"
+    privacy: Literal["friends", "private"] = "friends"
     streak_interval: int | None = None
 
 

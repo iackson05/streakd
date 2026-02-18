@@ -20,9 +20,9 @@ class UsernameUpdate(BaseModel):
 
 
 class NotificationSettingsSchema(BaseModel):
-    friend_requests: bool = True
-    reactions: bool = True
-    streak_reminders: bool = True
+    friend_requests: bool = False
+    reactions: bool = False
+    streak_reminders: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -1,20 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
-import 'react-native-url-polyfill/auto';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Your Supabase project credentials
-const SUPABASE_URL = 'https://qmfipdfosjgcvudqbbho.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_H1hHx0FHvyZHUEZOilw51A_2XwzpnG1';
-
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
-
+/**
+ * Auth + user profile functions.
+ * Migrated from Supabase to FastAPI backend.
+ */
+import { apiFetch, apiGet, saveTokens, clearTokens } from './api';
 
 // ============================================
 // AUTH FUNCTIONS
@@ -22,29 +10,26 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 
 /**
  * Sign up a new user with email/password
- * Creates auth user AND profile in users table
  */
 export const signUp = async (email, password, username) => {
   try {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
+    const res = await apiFetch('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, username }),
     });
 
-    if (authError) throw authError;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Sign up failed');
+    }
 
-    const { error: profileError } = await supabase
-      .from('users')
-      .insert({
-        id: authData.user.id, // Match auth.users id
-        username,
-        email,
-        created_at: new Date().toISOString(),
-      });
+    const data = await res.json();
+    await saveTokens(data.access_token, data.refresh_token);
 
-    if (profileError) throw profileError;
+    // Fetch the created user profile
+    const profile = await apiGet('/auth/me');
 
-    return { user: authData.user, error: null };
+    return { user: profile, error: null };
   } catch (error) {
     console.error('Sign up error:', error);
     return { user: null, error };
@@ -56,13 +41,23 @@ export const signUp = async (email, password, username) => {
  */
 export const signIn = async (email, password) => {
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const res = await apiFetch('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     });
 
-    if (error) throw error;
-    return { user: data.user, session: data.session, error: null };
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Invalid login credentials');
+    }
+
+    const data = await res.json();
+    await saveTokens(data.access_token, data.refresh_token);
+
+    // Fetch user profile
+    const profile = await apiGet('/auth/me');
+
+    return { user: profile, session: data, error: null };
   } catch (error) {
     console.error('Sign in error:', error);
     return { user: null, session: null, error };
@@ -74,8 +69,7 @@ export const signIn = async (email, password) => {
  */
 export const signOut = async () => {
   try {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    await clearTokens();
     return { error: null };
   } catch (error) {
     console.error('Sign out error:', error);
@@ -84,15 +78,13 @@ export const signOut = async () => {
 };
 
 /**
- * Get current user session
+ * Get current user from stored token
  */
 export const getCurrentUser = async () => {
   try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
+    const user = await apiGet('/auth/me');
     return { user, error: null };
   } catch (error) {
-    console.error('Get user error:', error);
     return { user: null, error };
   }
 };
@@ -102,14 +94,8 @@ export const getCurrentUser = async () => {
  */
 export const getUserProfile = async (userId) => {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (error) throw error;
-    return { profile: data, error: null };
+    const profile = await apiGet(`/users/profile/${userId}`);
+    return { profile, error: null };
   } catch (error) {
     console.error('Get profile error:', error);
     return { profile: null, error };
@@ -121,24 +107,9 @@ export const getUserProfile = async (userId) => {
  */
 export const checkUsernameAvailable = async (username) => {
   try {
-    const { data, error } = await supabase
-      .from('users')
-      .select('username')
-      .eq('username', username)
-      .single();
-
-    // If no data found, username is available
-    return { available: !data, error: null };
+    const data = await apiGet(`/users/check-username/${encodeURIComponent(username)}`);
+    return { available: data.available, error: null };
   } catch (error) {
-    // Error usually means username doesn't exist (available)
     return { available: true, error: null };
   }
-};
-
-/**
- * Listen to auth state changes
- * Usage: supabase.auth.onAuthStateChange((event, session) => {...})
- */
-export const onAuthStateChange = (callback) => {
-  return supabase.auth.onAuthStateChange(callback);
 };

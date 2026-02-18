@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,14 +12,15 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  Animated,
 } from 'react-native';
-import { Users, Plus, X } from 'lucide-react-native';
+import { Users, Plus, X, Flame } from 'lucide-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { getFeedPosts, getUserReactionsForPosts } from '../services/posts';
 import { getUserActiveGoals } from '../services/goals';
 
-export default function Feed({ navigation }) {
+export default function Feed({ navigation, route }) {
   const { user, profile, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState([]);
   const [userReactions, setUserReactions] = useState({});
@@ -28,6 +29,23 @@ export default function Feed({ navigation }) {
   const [showGoalSelector, setShowGoalSelector] = useState(false);
   const [goals, setGoals] = useState([]);
   const [loadingGoals, setLoadingGoals] = useState(false);
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(
+    route?.params?.fromOnboarding === true
+  );
+  const welcomeOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (route?.params?.fromOnboarding) {
+      const timer = setTimeout(() => {
+        Animated.timing(welcomeOpacity, {
+          toValue: 0,
+          duration: 900,
+          useNativeDriver: true,
+        }).start(() => setShowWelcomeOverlay(false));
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -114,7 +132,9 @@ export default function Feed({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.logoButton}>
-          <View style={styles.logoDot} />
+          <View style={styles.logoIconRing}>
+            <Flame color="#FF6B35" size={14} fill="#FF6B35" />
+          </View>
           <Text style={styles.logoText}>streakd</Text>
         </TouchableOpacity>
 
@@ -179,10 +199,20 @@ export default function Feed({ navigation }) {
           </View>
         ) : posts.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>No posts yet</Text>
+            <View style={styles.emptyIconRing}>
+              <Flame color="#FF6B35" size={32} fill="#FF6B35" />
+            </View>
+            <Text style={styles.emptyText}>Your feed is quiet</Text>
             <Text style={styles.emptySubtext}>
-              Add friends or create your first post!
+              Add friends and post your first streak update to get things going
             </Text>
+            <TouchableOpacity
+              style={styles.emptyButton}
+              onPress={() => navigation.navigate('AddFriends')}
+            >
+              <Users color="#FF6B35" size={16} />
+              <Text style={styles.emptyButtonText}>Find friends</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           /* Posts */
@@ -192,10 +222,10 @@ export default function Feed({ navigation }) {
               post={{
                 id: post.id,
                 user_id: post.user_id,
-                username: post.users?.username || 'Unknown',
-                profile_picture_url: post.users?.profile_picture_url,
-                goal: post.goals?.title || 'Goal',
-                streak_count: post.goals?.streak_count || 0,
+                username: post.username || 'Unknown',
+                profile_picture_url: post.profile_picture_url,
+                goal: post.goal_title || 'Goal',
+                streak_count: post.streak_count || 0,
                 image: post.image_url,
                 timestamp: formatTimestamp(post.created_at),
                 reaction_fire: post.reaction_fire,
@@ -221,6 +251,20 @@ export default function Feed({ navigation }) {
           </View>
         )}
       </ScrollView>
+
+      {/* Onboarding welcome overlay — fades out after navigation from Onboarding */}
+      {showWelcomeOverlay && (
+        <Animated.View
+          style={[styles.welcomeOverlay, { opacity: welcomeOpacity }]}
+          pointerEvents="none"
+        >
+          <View style={styles.welcomeLogoRing}>
+            <Flame color="#FF6B35" size={36} fill="#FF6B35" />
+          </View>
+          <Text style={styles.welcomeTitle}>Welcome to streakd</Text>
+          <Text style={styles.welcomeSubtitle}>Your journey starts now 🔥</Text>
+        </Animated.View>
+      )}
 
       {/* Goal Selector Modal */}
       <Modal
@@ -295,17 +339,49 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 56,
+    gap: 12,
+  },
+  emptyIconRing: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(255,107,53,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
   },
   emptySubtext: {
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.35)',
     fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    paddingHorizontal: 24,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.4)',
+    backgroundColor: 'rgba(255,107,53,0.1)',
+  },
+  emptyButtonText: {
+    color: '#FF6B35',
+    fontSize: 14,
+    fontWeight: '600',
   },
   header: {
     flexDirection: 'row',
@@ -322,16 +398,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  logoDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#fff',
+  logoIconRing: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   headerActions: {
     flexDirection: 'row',
@@ -402,6 +483,35 @@ const styles = StyleSheet.create({
   endText: {
     color: 'rgba(255,255,255,0.3)',
     fontSize: 14,
+  },
+  welcomeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+    zIndex: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  welcomeLogoRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  welcomeTitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '700',
+    letterSpacing: -0.5,
+  },
+  welcomeSubtitle: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 16,
   },
   // Modal Styles
   modalOverlay: {

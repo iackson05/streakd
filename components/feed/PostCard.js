@@ -10,14 +10,39 @@ import {
 import { Trash2 } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
-import { supabase } from '../../services/supabase';
+import { apiGet, apiPost } from '../../services/api';
 import { deletePost } from '../../services/posts';
 
+// Each reaction has its own color palette for the active state
 const REACTIONS = [
-  { emoji: '🔥', key: 'reaction_fire' },
-  { emoji: '👊', key: 'reaction_fist' },
-  { emoji: '🎉', key: 'reaction_party' },
-  { emoji: '❤️', key: 'reaction_heart' },
+  {
+    emoji: '🔥',
+    key: 'reaction_fire',
+    activeBg: 'rgba(255,107,53,0.25)',
+    activeBorder: 'rgba(255,107,53,0.6)',
+    activeText: '#FF6B35',
+  },
+  {
+    emoji: '👊',
+    key: 'reaction_fist',
+    activeBg: 'rgba(91,141,239,0.25)',
+    activeBorder: 'rgba(91,141,239,0.6)',
+    activeText: '#5B8DEF',
+  },
+  {
+    emoji: '🎉',
+    key: 'reaction_party',
+    activeBg: 'rgba(179,136,255,0.25)',
+    activeBorder: 'rgba(179,136,255,0.6)',
+    activeText: '#B388FF',
+  },
+  {
+    emoji: '❤️',
+    key: 'reaction_heart',
+    activeBg: 'rgba(255,71,87,0.25)',
+    activeBorder: 'rgba(255,71,87,0.6)',
+    activeText: '#FF4757',
+  },
 ];
 
 export default function PostCard({ post, onDelete, initialUserReaction }) {
@@ -32,10 +57,8 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
   });
   const [deleting, setDeleting] = useState(false);
 
-  // Check if this is the current user's post
   const isOwnPost = post.user_id === user?.id;
 
-  // Only fetch reaction if not provided (for backwards compatibility)
   useEffect(() => {
     if (initialUserReaction === undefined) {
       loadUserReaction();
@@ -51,7 +74,6 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
     });
   }, [post.id, post.reaction_fire, post.reaction_fist, post.reaction_party, post.reaction_heart]);
 
-  // Update userReaction when initialUserReaction changes
   useEffect(() => {
     if (initialUserReaction !== undefined) {
       setUserReaction(initialUserReaction);
@@ -60,16 +82,8 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
 
   const loadUserReaction = async () => {
     try {
-      const { data, error } = await supabase
-        .from('reactions')
-        .select('react_emoji')
-        .eq('post_id', post.id)
-        .eq('user_id_who_reacted', user?.id)
-        .maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
-
-      setUserReaction(data?.react_emoji || null);
+      const data = await apiGet(`/reactions/post/${post.id}`);
+      setUserReaction(data?.[0]?.react_emoji || null);
     } catch (error) {
       console.error('Error loading user reaction:', error);
     }
@@ -77,18 +91,11 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
 
   const handleReaction = async (emoji, key) => {
     try {
-      // Call the Postgres function (bypasses RLS)
-      const { data, error } = await supabase
-        .rpc('toggle_reaction', {
-          p_post_id: post.id,
-          p_user_id: user.id,
-          p_emoji: emoji,
-        })
-        .single();
+      const data = await apiPost('/reactions/toggle', {
+        post_id: post.id,
+        react_emoji: emoji,
+      });
 
-      if (error) throw error;
-
-      // Update local state with returned counts
       setLocalCounts({
         reaction_fire: data.reaction_fire,
         reaction_fist: data.reaction_fist,
@@ -117,10 +124,8 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
               const { error } = await deletePost(post.id, user.id);
               if (error) throw error;
 
-              // Update cache
               removePost(post.id);
 
-              // Call parent callback if provided
               if (onDelete) {
                 onDelete(post.id);
               }
@@ -135,80 +140,88 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
     );
   };
 
-  // Don't render if deleted
   if (deleting) {
     return null;
   }
 
   return (
     <View style={styles.container}>
-      <View style={styles.card}>
+      <View style={[styles.card, isOwnPost && styles.cardOwn]}>
         <View style={styles.imageContainer}>
           <Image
             source={{ uri: post.image }}
             style={styles.image}
             resizeMode="cover"
           />
-                    
-          {/* Top - Username & Goal */}
+
+          {/* Top gradient overlay */}
+          <View style={styles.gradientTop} />
+
+          {/* Top — Avatar, username, goal, streak, delete */}
           <View style={styles.topSection}>
             <Image
               source={{ uri: post.profile_picture_url }}
-              style={styles.avatar}
+              style={[styles.avatar, isOwnPost && styles.avatarOwn]}
             />
             <View style={styles.userInfo}>
               <Text style={styles.username}>{post.username}</Text>
-              <View style={styles.goalRow}>
-                <Text style={styles.goalText}>{post.goal}</Text>
-                {post.streak_count > 0 && (
-                  <Text style={styles.streakText}>{post.streak_count} 🔥</Text>
-                )}
-              </View>
+              <Text style={styles.goalText} numberOfLines={1}>{post.goal}</Text>
             </View>
+
+            {/* Streak badge */}
+            {post.streak_count > 0 && (
+              <View style={styles.streakBadge}>
+                <Text style={styles.streakEmoji}>🔥</Text>
+                <Text style={styles.streakCount}>{post.streak_count}</Text>
+              </View>
+            )}
+
             {isOwnPost && (
-              <TouchableOpacity
-                onPress={handleDelete}
-                style={styles.deleteButton}
-              >
-                <Trash2 color="rgba(255,255,255,0.6)" size={16} />
+              <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
+                <Trash2 color="rgba(255,255,255,0.6)" size={15} />
               </TouchableOpacity>
             )}
           </View>
 
-          {/* Bottom - Caption & Reactions */}
+          {/* Bottom gradient overlay */}
+          <View style={styles.gradientBottom} />
+
+          {/* Bottom — Caption & Reactions */}
           <View style={styles.bottomSection}>
             {post.caption && (
               <Text style={styles.caption} numberOfLines={2}>
                 {post.caption}
               </Text>
             )}
-            
-            {/* Reactions Row */}
+
             <View style={styles.reactionsRow}>
-              {REACTIONS.map(({ emoji, key }) => {
+              {REACTIONS.map(({ emoji, key, activeBg, activeBorder, activeText }) => {
                 const count = localCounts[key];
                 const isActive = userReaction === emoji;
-                
+
                 return (
                   <TouchableOpacity
                     key={emoji}
                     onPress={() => handleReaction(emoji, key)}
                     style={[
                       styles.reactionBubble,
-                      isActive && styles.reactionBubbleActive,
+                      isActive && {
+                        backgroundColor: activeBg,
+                        borderColor: activeBorder,
+                      },
                     ]}
                   >
                     <Text style={styles.reactionEmoji}>{emoji}</Text>
                     <Text style={[
                       styles.reactionCount,
-                      isActive && styles.reactionCountActive,
+                      isActive && { color: activeText },
                     ]}>
                       {count > 99 ? '99+' : count}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-              
+
               <Text style={styles.timestamp}>{post.timestamp}</Text>
             </View>
           </View>
@@ -220,17 +233,20 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 32,
+    marginBottom: 28,
   },
   card: {
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#0A0A0A',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  cardOwn: {
+    borderColor: 'rgba(255,107,53,0.25)',
   },
   imageContainer: {
-    aspectRatio: 4/5,
+    aspectRatio: 4 / 5,
     position: 'relative',
   },
   image: {
@@ -242,35 +258,25 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    height: 120,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   gradientBottom: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 200,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    height: 180,
+    backgroundColor: 'rgba(0,0,0,0.65)',
   },
   topSection: {
     position: 'absolute',
-    top: 16,
-    left: 16,
-    right: 16,
+    top: 14,
+    left: 14,
+    right: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
+    gap: 10,
   },
   avatar: {
     width: 40,
@@ -280,75 +286,92 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
+  avatarOwn: {
+    borderColor: '#FF6B35',
+  },
   userInfo: {
-    gap: 4,
+    flex: 1,
+    gap: 2,
   },
   username: {
     color: '#fff',
     fontSize: 14,
-    fontWeight: '500',
-  },
-  goalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontWeight: '600',
   },
   goalText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 12,
   },
-  streakText: {
-    color: 'rgba(255,200,100,0.9)',
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,186,8,0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,186,8,0.5)',
+    borderRadius: 20,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  streakEmoji: {
     fontSize: 12,
-    fontWeight: '600',
+  },
+  streakCount: {
+    color: '#FFBA08',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  deleteButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomSection: {
     position: 'absolute',
-    bottom: 16,
-    left: 16,
-    right: 16,
-    gap: 12,
+    bottom: 14,
+    left: 14,
+    right: 14,
+    gap: 10,
   },
   caption: {
-    color: 'rgba(255,255,255,0.9)',
+    color: 'rgba(255,255,255,0.92)',
     fontSize: 14,
     lineHeight: 20,
+    fontWeight: '400',
   },
   reactionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     flexWrap: 'wrap',
   },
   reactionBubble: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 4,
-    paddingVertical: 6,
-  },
-  reactionBubbleActive: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
   reactionEmoji: {
     fontSize: 13,
   },
   reactionCount: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.55)',
     fontSize: 12,
     fontWeight: '600',
   },
-  reactionCountActive: {
-    color: 'rgba(255,255,255,0.9)',
-  },
   timestamp: {
     marginLeft: 'auto',
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 11,
   },
 });

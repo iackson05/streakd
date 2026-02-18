@@ -12,8 +12,8 @@ class NotificationSettings(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    friend_requests: Mapped[bool] = mapped_column(Boolean, default=True)
-    reactions: Mapped[bool] = mapped_column(Boolean, default=True)
-    streak_reminders: Mapped[bool] = mapped_column(Boolean, default=True)
+    friend_requests: Mapped[bool] = mapped_column(Boolean, default=False)
+    reactions: Mapped[bool] = mapped_column(Boolean, default=False)
+    streak_reminders: Mapped[bool] = mapped_column(Boolean, default=False)
 
     user: Mapped["User"] = relationship("User", back_populates="notification_settings")

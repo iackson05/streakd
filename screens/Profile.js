@@ -135,11 +135,11 @@ export default function Profile({ navigation }) {
     }
   }, [user]);
 
-  // Auto-refresh when screen gains focus (if data is stale)
+  // Always force-refresh when screen gains focus so stats (friend count, posts) are accurate
   useFocusEffect(
     useCallback(() => {
       if (user) {
-        fetchProfileData(); // Uses cache if fresh, fetches if stale
+        fetchProfileData(true);
       }
     }, [user])
   );

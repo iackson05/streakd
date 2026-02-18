@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { ArrowLeft, Bell, BellOff } from 'lucide-react-native';
+import { ArrowLeft, BellOff, Flame, Heart, Users } from 'lucide-react-native';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -19,11 +19,42 @@ import {
   getNotificationSettings,
 } from '../services/users';
 
+const TOGGLE_ROWS = [
+  {
+    key: 'streak_reminders',
+    label: 'Streak Reminders',
+    description: 'Reminders to post your streak updates on time',
+    Icon: Flame,
+    iconColor: '#FF6B35',
+    iconBg: 'rgba(255,107,53,0.15)',
+  },
+  {
+    key: 'reactions',
+    label: 'Reactions',
+    description: 'When friends react to your posts',
+    Icon: Heart,
+    iconColor: '#FF4757',
+    iconBg: 'rgba(255,71,87,0.15)',
+  },
+  {
+    key: 'friend_requests',
+    label: 'Friend Requests',
+    description: 'When someone sends you a friend request',
+    Icon: Users,
+    iconColor: '#5B8DEF',
+    iconBg: 'rgba(91,141,239,0.15)',
+  },
+];
+
 export default function NotificationsSettings({ navigation }) {
   const { user } = useAuth();
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [settings, setSettings] = useState({
+    streak_reminders: false,
+    reactions: false,
+    friend_requests: false,
+  });
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [saving, setSaving] = useState(null); // key of the toggle currently saving
   const [systemPermission, setSystemPermission] = useState(null);
 
   useEffect(() => {
@@ -33,8 +64,8 @@ export default function NotificationsSettings({ navigation }) {
 
   const loadSettings = async () => {
     try {
-      const { enabled } = await getNotificationSettings(user.id);
-      setNotificationsEnabled(enabled);
+      const { streak_reminders, reactions, friend_requests } = await getNotificationSettings();
+      setSettings({ streak_reminders, reactions, friend_requests });
     } catch (error) {
       console.error('Error loading notification settings:', error);
     } finally {
@@ -47,35 +78,33 @@ export default function NotificationsSettings({ navigation }) {
     setSystemPermission(status);
   };
 
-  const handleToggle = async (value) => {
-    // Check system permissions first
+  const handleToggle = async (key, value) => {
     if (value && systemPermission !== 'granted') {
       Alert.alert(
         'Permission Required',
         'Push notifications are disabled in your device settings. Would you like to enable them?',
         [
           { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Open Settings',
-            onPress: () => Linking.openSettings(),
-          },
+          { text: 'Open Settings', onPress: () => Linking.openSettings() },
         ]
       );
       return;
     }
 
-    setSaving(true);
-    setNotificationsEnabled(value);
+    const prev = settings;
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    setSaving(key);
 
     try {
-      const { error } = await updateNotificationSettings(user.id, value);
+      const { error } = await updateNotificationSettings(newSettings);
       if (error) throw error;
     } catch (error) {
       console.error('Error updating notification settings:', error);
-      setNotificationsEnabled(!value); // Revert on error
+      setSettings(prev); // revert
       Alert.alert('Error', 'Failed to update notification settings');
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
@@ -126,41 +155,48 @@ export default function NotificationsSettings({ navigation }) {
           </TouchableOpacity>
         )}
 
-        {/* Push Notifications Toggle */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PUSH NOTIFICATIONS</Text>
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingIcon}>
-                <Bell color="rgba(255,255,255,0.6)" size={16} />
+        {/* Individual Toggles */}
+        <Text style={styles.sectionTitle}>PUSH NOTIFICATIONS</Text>
+        <View style={styles.settingCard}>
+          {TOGGLE_ROWS.map(({ key, label, description, Icon, iconColor, iconBg }, index) => {
+            const isLast = index === TOGGLE_ROWS.length - 1;
+            const value = settings[key];
+            const isSaving = saving === key;
+
+            return (
+              <View key={key}>
+                <View style={styles.settingRow}>
+                  <View style={[styles.settingIcon, { backgroundColor: iconBg }]}>
+                    <Icon color={iconColor} size={16} />
+                  </View>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{label}</Text>
+                    <Text style={styles.settingDescription}>{description}</Text>
+                  </View>
+                  {isSaving ? (
+                    <ActivityIndicator size="small" color="rgba(255,255,255,0.4)" style={styles.switchLoader} />
+                  ) : (
+                    <Switch
+                      value={value}
+                      onValueChange={(v) => handleToggle(key, v)}
+                      trackColor={{
+                        false: 'rgba(255,255,255,0.1)',
+                        true: 'rgba(255,107,53,0.5)',
+                      }}
+                      thumbColor={value ? '#FF6B35' : 'rgba(255,255,255,0.5)'}
+                      disabled={saving !== null}
+                    />
+                  )}
+                </View>
+                {!isLast && <View style={styles.divider} />}
               </View>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Enable Notifications</Text>
-                <Text style={styles.settingDescription}>
-                  Receive reminders to post and friend updates
-                </Text>
-              </View>
-              <Switch
-                value={notificationsEnabled}
-                onValueChange={handleToggle}
-                trackColor={{
-                  false: 'rgba(255,255,255,0.1)',
-                  true: 'rgba(255,255,255,0.4)',
-                }}
-                thumbColor={notificationsEnabled ? '#fff' : 'rgba(255,255,255,0.5)'}
-                disabled={saving}
-              />
-            </View>
-          </View>
+            );
+          })}
         </View>
 
-        {/* Info Section */}
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>About Notifications</Text>
-          <Text style={styles.infoText}>
-            When enabled, you'll receive reminders based on your goal schedules to help you stay on track. You'll also get notified when friends send you requests or react to your posts.
-          </Text>
-        </View>
+        <Text style={styles.footerNote}>
+          Individual toggles let you choose exactly what you hear about. Streak reminders help you maintain your goals by posting on time.
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -207,7 +243,7 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 16,
-    paddingTop: 24,
+    paddingTop: 28,
   },
   warningCard: {
     flexDirection: 'row',
@@ -217,7 +253,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,107,107,0.3)',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 24,
+    marginBottom: 28,
     gap: 12,
   },
   warningIcon: {
@@ -241,11 +277,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255,107,107,0.8)',
     fontSize: 12,
   },
-  section: {
-    marginBottom: 32,
-  },
   sectionTitle: {
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 11,
     fontWeight: '500',
     letterSpacing: 1,
@@ -258,20 +291,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     overflow: 'hidden',
+    marginBottom: 24,
   },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    gap: 16,
+    gap: 14,
   },
   settingIcon: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -287,21 +318,20 @@ const styles = StyleSheet.create({
   settingDescription: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 12,
+    lineHeight: 17,
   },
-  infoSection: {
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    borderRadius: 12,
-    padding: 16,
+  switchLoader: {
+    width: 51, // match Switch width so layout doesn't shift
   },
-  infoTitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 8,
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginHorizontal: 16,
   },
-  infoText: {
-    color: 'rgba(255,255,255,0.4)',
+  footerNote: {
+    color: 'rgba(255,255,255,0.3)',
     fontSize: 13,
-    lineHeight: 20,
+    lineHeight: 19,
+    paddingHorizontal: 4,
   },
 });

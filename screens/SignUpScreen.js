@@ -11,9 +11,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Flame } from 'lucide-react-native';
 import { signUp, checkUsernameAvailable } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+const BRAND = '#FF6B35';
 
 export default function SignUpScreen({ navigation }) {
+  const { signUpUser } = useAuth();
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -21,14 +26,12 @@ export default function SignUpScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const validateInputs = () => {
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert('Invalid Email', 'Please enter a valid email address');
       return false;
     }
 
-    // Username validation (3-20 chars, alphanumeric + underscore)
     const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
     if (!usernameRegex.test(username)) {
       Alert.alert(
@@ -38,13 +41,11 @@ export default function SignUpScreen({ navigation }) {
       return false;
     }
 
-    // Password validation (min 6 chars)
     if (password.length < 6) {
       Alert.alert('Weak Password', 'Password must be at least 6 characters');
       return false;
     }
 
-    // Passwords match
     if (password !== confirmPassword) {
       Alert.alert('Password Mismatch', 'Passwords do not match');
       return false;
@@ -59,7 +60,6 @@ export default function SignUpScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // Check if username is available
       const { available } = await checkUsernameAvailable(username);
       if (!available) {
         Alert.alert('Username Taken', 'This username is already in use');
@@ -67,11 +67,9 @@ export default function SignUpScreen({ navigation }) {
         return;
       }
 
-      // Create account
       const { user, error } = await signUp(email, password, username);
 
       if (error) {
-        // Handle specific errors
         if (error.message.includes('already registered')) {
           Alert.alert('Account Exists', 'This email is already registered');
         } else {
@@ -81,17 +79,10 @@ export default function SignUpScreen({ navigation }) {
         return;
       }
 
-      // Success!
-      Alert.alert(
-        'Account Created!',
-        'Check your email to verify your account',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.replace('Login'), // or 'Feed' if you want auto-login
-          },
-        ]
-      );
+      // Flag as new user so onboarding is shown after auth state changes
+      if (user) {
+        signUpUser(user);
+      }
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
       console.error('Sign up error:', error);
@@ -110,7 +101,9 @@ export default function SignUpScreen({ navigation }) {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <View style={styles.logoDot} />
+              <View style={styles.logoIconRing}>
+                <Flame color={BRAND} size={22} fill={BRAND} />
+              </View>
               <Text style={styles.logoText}>streakd</Text>
             </View>
             <Text style={styles.subtitle}>Create your account</Text>
@@ -178,7 +171,7 @@ export default function SignUpScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>Create Account</Text>
               )}
@@ -208,82 +201,93 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 44,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
-  logoDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#fff',
+  logoIconRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoText: {
     color: '#fff',
-    fontSize: 32,
-    fontWeight: '600',
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -1,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 16,
   },
   form: {
-    gap: 20,
+    gap: 18,
   },
   inputContainer: {
     gap: 8,
   },
   label: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     color: '#fff',
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: BRAND,
+    borderRadius: 14,
+    padding: 17,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 20,
   },
   footerText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
   },
   linkText: {
-    color: '#fff',
+    color: BRAND,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

@@ -11,9 +11,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Flame } from 'lucide-react-native';
 import { signIn } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
+
+const BRAND = '#FF6B35';
 
 export default function LoginScreen({ navigation }) {
+  const { setAuthUser } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -39,6 +44,10 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
+      if (user) {
+        setAuthUser(user);
+      }
+
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
       console.error('Login error:', error);
@@ -57,7 +66,9 @@ export default function LoginScreen({ navigation }) {
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <View style={styles.logoDot} />
+              <View style={styles.logoIconRing}>
+                <Flame color={BRAND} size={22} fill={BRAND} />
+              </View>
               <Text style={styles.logoText}>streakd</Text>
             </View>
             <Text style={styles.subtitle}>Welcome back</Text>
@@ -99,7 +110,7 @@ export default function LoginScreen({ navigation }) {
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#000" />
+                <ActivityIndicator color="#fff" />
               ) : (
                 <Text style={styles.buttonText}>Log In</Text>
               )}
@@ -129,32 +140,37 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 28,
     justifyContent: 'center',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 52,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     marginBottom: 16,
   },
-  logoDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#fff',
+  logoIconRing: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,107,53,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,107,53,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   logoText: {
     color: '#fff',
-    fontSize: 32,
-    fontWeight: '600',
+    fontSize: 34,
+    fontWeight: '700',
+    letterSpacing: -1,
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.5)',
     fontSize: 16,
   },
   form: {
@@ -164,47 +180,53 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   label: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   input: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 16,
     color: '#fff',
     fontSize: 16,
   },
   button: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: BRAND,
+    borderRadius: 14,
+    padding: 17,
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 8,
+    shadowColor: BRAND,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#000',
+    color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: 20,
   },
   footerText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.4)',
     fontSize: 14,
   },
   linkText: {
-    color: '#fff',
+    color: BRAND,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

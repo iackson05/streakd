@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
-import { supabase } from './services/supabase';
+import { apiPut } from './services/api';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, StyleSheet } from 'react-native';
@@ -19,6 +19,7 @@ import LoginScreen from './screens/LoginScreen';
 import SignUpScreen from './screens/SignUpScreen';
 import CreatePost from './screens/CreatePost';
 import Friends from './screens/Friends';
+import Onboarding from './screens/Onboarding';
 
 
 const Stack = createStackNavigator();
@@ -34,7 +35,7 @@ Notifications.setNotificationHandler({
 
 // Inner component that has access to auth context
 function AppContent() {
-  const { user, loading } = useAuth(); // Added 'loading'
+  const { user, loading, isNewUser } = useAuth();
   const notificationListener = useRef();
   const responseListener = useRef();
 
@@ -96,10 +97,7 @@ function AppContent() {
       console.log('Push token:', token);
 
       // Save token to database
-      await supabase
-        .from('users')
-        .update({ push_token: token })
-        .eq('id', userId);
+      await apiPut('/users/push-token', { push_token: token });
 
       console.log('Push token saved to database');
     } catch (error) {
@@ -124,10 +122,17 @@ function AppContent() {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        // key forces the navigator to remount when switching between
+        // auth and authenticated stacks, so initialRouteName is respected
+        key={user ? 'authenticated' : 'guest'}
+        screenOptions={{ headerShown: false }}
+        initialRouteName={user ? (isNewUser ? 'Onboarding' : 'Feed') : 'Login'}
+      >
         {user ? (
           // Authenticated screens - only shown when user is logged in
           <>
+            <Stack.Screen name="Onboarding" component={Onboarding} />
             <Stack.Screen name="Feed" component={Feed} />
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="Settings" component={Settings} />

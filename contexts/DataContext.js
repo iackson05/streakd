@@ -1,12 +1,12 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
-import { supabase } from '../services/supabase';
+import { apiGet } from '../services/api';
 import { useAuth } from './AuthContext';
 
 const DataContext = createContext({});
 
 export const DataProvider = ({ children }) => {
   const { user } = useAuth();
-  
+
   // Cached data
   const [profileData, setProfileData] = useState({
     goals: [],
@@ -49,43 +49,30 @@ export const DataProvider = ({ children }) => {
     setProfileData(prev => ({ ...prev, loading: true }));
 
     try {
-      const [goalsResult, postsResult, userResult, friendsResult] = await Promise.all([
-        supabase
-          .from('goals')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('posts')
-          .select('*, goals(title)')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('users')
-          .select('created_at')
-          .eq('id', user.id)
-          .single(),
-        supabase
-          .from('friendships')
-          .select('id')
-          .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-          .eq('status', 'accepted')
+      const [goals, profileInfo, friendsResult] = await Promise.all([
+        apiGet('/goals/'),
+        apiGet(`/users/profile/${user.id}`),
+        apiGet('/friends/accepted-ids'),
       ]);
 
-      if (goalsResult.error) throw goalsResult.error;
-      if (postsResult.error) throw postsResult.error;
+      // Get all posts for the user across all goals
+      let allPosts = [];
+      if (goals && goals.length > 0) {
+        const postPromises = goals.map(g => apiGet(`/posts/goal/${g.id}`).catch(() => []));
+        const postArrays = await Promise.all(postPromises);
+        allPosts = postArrays.flat();
+        // Sort by created_at descending
+        allPosts.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      }
 
-      const goals = goalsResult.data || [];
-      const posts = postsResult.data || [];
-      const userCreatedAt = userResult.data?.created_at;
-      const friendCount = friendsResult.data?.length || 0;
+      const friendCount = friendsResult?.friend_ids?.length || 0;
 
       // Calculate stats
-      const stats = calculateStats(posts, userCreatedAt, friendCount);
+      const stats = calculateStats(allPosts, profileInfo?.created_at, friendCount);
 
       const newData = {
-        goals,
-        posts,
+        goals: goals || [],
+        posts: allPosts,
         stats,
         lastFetch: Date.now(),
         loading: false,
@@ -112,37 +99,20 @@ export const DataProvider = ({ children }) => {
     setFriendsData(prev => ({ ...prev, loading: true }));
 
     try {
-      const { data, error } = await supabase
-        .from('friendships')
-        .select(`
-          user_id,
-          friend_id,
-          status,
-          created_at,
-          users!friendships_user_id_fkey (
-            id,
-            username,
-            email,
-            profile_picture_url
-          ),
-          friend:users!friendships_friend_id_fkey (
-            id,
-            username,
-            email,
-            profile_picture_url
-          )
-        `)
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const data = await apiGet('/friends/');
 
       const friends = [];
       const pendingRequests = [];
 
       data?.forEach(friendship => {
         const isRequestSentByMe = friendship.user_id === user.id;
-        const otherUser = isRequestSentByMe ? friendship.friend : friendship.users;
+        // The other user's info is in friend_username and friend_profile_picture_url
+        const otherUserId = isRequestSentByMe ? friendship.friend_id : friendship.user_id;
+        const otherUser = {
+          id: otherUserId,
+          username: friendship.friend_username,
+          profile_picture_url: friendship.friend_profile_picture_url,
+        };
 
         if (friendship.status === 'accepted') {
           friends.push(otherUser);
@@ -182,48 +152,11 @@ export const DataProvider = ({ children }) => {
     setFeedData(prev => ({ ...prev, loading: true }));
 
     try {
-      // Get user's friends
-      const { data: friendships, error: friendError } = await supabase
-        .from('friendships')
-        .select('user_id, friend_id')
-        .or(`user_id.eq.${user.id},friend_id.eq.${user.id}`)
-        .eq('status', 'accepted');
-
-      if (friendError) throw friendError;
-
-      const friendIds = friendships?.map(f => 
-        f.user_id === user.id ? f.friend_id : f.user_id
-      ) || [];
-
-      const userIds = [user.id, ...friendIds];
-
-      const { data, error } = await supabase
-        .from('posts')
-        .select(`
-          *,
-          users!posts_user_id_fkey (
-            id,
-            username,
-            profile_picture_url
-          ),
-          goals!posts_goal_id_fkey (
-            id,
-            title,
-            privacy
-          )
-        `)
-        .in('user_id', userIds)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const filteredPosts = data?.filter(post => {
-        if (post.user_id === user.id) return true;
-        return post.goals?.privacy !== 'private';
-      }) || [];
+      // Backend handles friend filtering, privacy, and 24h window
+      const posts = await apiGet('/posts/feed');
 
       const newData = {
-        posts: filteredPosts,
+        posts: posts || [],
         lastFetch: Date.now(),
         loading: false,
       };
@@ -360,7 +293,7 @@ export const DataProvider = ({ children }) => {
     markGoalCompleted,
     addPost,
     removePost,
-    
+
     // Friends
     friendsData,
     fetchFriendsData,
@@ -370,7 +303,7 @@ export const DataProvider = ({ children }) => {
     addPendingRequest,
     removePendingRequest,
     acceptFriendRequest,
-    
+
     // Feed
     feedData,
     fetchFeedData,

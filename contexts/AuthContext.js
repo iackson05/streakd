@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import { supabase } from '../services/supabase';
+import { getCurrentUser, signOut as authSignOut } from '../services/supabase';
+import { getTokens, clearTokens } from '../services/api';
 
 const AuthContext = createContext({});
 
@@ -7,84 +8,88 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
-    // Check current session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('📱 Session on mount:', session ? 'Found' : 'None');
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        loadUserProfile(session.user);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth event:', event);
-        
-        if (session?.user) {
-          await loadUserProfile(session.user);
-        } else {
-          setUser(null);
-          setProfile(null);
-        }
-        setLoading(false);
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    checkUser();
   }, []);
 
-    const checkUser = async () => {
-      try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-    
-        if (error || !user) {
-          setLoading(false);
-          return;
-        }
-
-        await loadUserProfile(user);
-    }   catch (error) {
-        console.error('Error checking user:', error);
+  const checkUser = async () => {
+    try {
+      // Check if we have stored tokens
+      const { access } = await getTokens();
+      if (!access) {
         setLoading(false);
-    }
-    };
-
-    const loadUserProfile = async (authUser) => {
-      try {
-        const { data: profileData, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', authUser.id)
-          .single();
-
-        if (error) throw error;
-
-        setUser(authUser);
-        setProfile(profileData);
-      } catch (error) {
-        console.error('Error loading profile:', error);
-      } finally {
-        setLoading(false);
+        return;
       }
-    };
+
+      // Try to fetch current user profile with the stored token
+      const { user: userData, error } = await getCurrentUser();
+
+      if (error || !userData) {
+        // Token is invalid or expired (refresh also failed)
+        await clearTokens();
+        setLoading(false);
+        return;
+      }
+
+      // userData from /auth/me is the profile itself
+      setUser(userData);
+      setProfile(userData);
+    } catch (error) {
+      console.error('Error checking user:', error);
+      await clearTokens();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authSignOut();
     setUser(null);
     setProfile(null);
+  };
+
+  const refreshProfile = async () => {
+    try {
+      const { user: userData, error } = await getCurrentUser();
+      if (!error && userData) {
+        setUser(userData);
+        setProfile(userData);
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+
+  // Called after login to set user immediately (existing users → Feed)
+  const setAuthUser = (userData) => {
+    setUser(userData);
+    setProfile(userData);
+  };
+
+  // Called after signup — flags user as new so onboarding is shown
+  const signUpUser = (userData) => {
+    setIsNewUser(true);
+    setUser(userData);
+    setProfile(userData);
+  };
+
+  // Called when onboarding is complete
+  const completeOnboarding = () => {
+    setIsNewUser(false);
   };
 
   const value = {
     user,
     profile,
     loading,
+    isNewUser,
     signOut,
-    refreshProfile: () => user && loadUserProfile(user),
+    refreshProfile,
+    setAuthUser,
+    signUpUser,
+    completeOnboarding,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

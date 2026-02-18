@@ -1,9 +1,12 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.database import get_db
 from app.dependencies import get_current_user
@@ -151,4 +154,9 @@ async def delete_post(
     await db.commit()
 
     if image_url:
-        await delete_file(image_url)
+        try:
+            await delete_file(image_url)
+            logger.info(f"Deleted R2 file: {image_url}")
+        except Exception as e:
+            # Log but don't fail — the DB row is already deleted
+            logger.error(f"Failed to delete R2 file {image_url}: {e}")

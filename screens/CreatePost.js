@@ -11,11 +11,12 @@ import {
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { X, FlipHorizontal } from 'lucide-react-native';
-import { supabase } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { getUserGoals, incrementGoalStreak } from '../services/goals';
-import { uploadPostImage, createPost } from '../services/posts';
+import { createPost } from '../services/posts';
 
 export default function CreatePostScreen({ navigation, route }) {
+  const { user } = useAuth();
   const [permission, requestPermission] = useCameraPermissions();
   const [facing, setFacing] = useState('back');
   const [photo, setPhoto] = useState(null);
@@ -28,7 +29,7 @@ export default function CreatePostScreen({ navigation, route }) {
   // Load user's goals
   useEffect(() => {
     const loadGoals = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
       const { goals: userGoals, error } = await getUserGoals(user.id);
 
@@ -97,19 +98,12 @@ export default function CreatePostScreen({ navigation, route }) {
   };
 
   const handlePost = async () => {
-    if (!photo || !selectedGoal) return;
+    if (!photo || !selectedGoal || !user) return;
     setUploading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
-      // Upload image to storage
-      const { publicUrl, error: uploadError } = await uploadPostImage(user.id, photo.uri);
-
-      if (uploadError) throw uploadError;
-
-      // Create post in database
-      const { post, error } = await createPost(user.id, selectedGoal.id, publicUrl);
+      // Create post with image upload (backend handles storage)
+      const { post, error } = await createPost(user.id, selectedGoal.id, photo.uri);
 
       if (error) throw error;
 

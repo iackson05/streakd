@@ -16,7 +16,7 @@ class Goal(Base):
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)
-    privacy: Mapped[str] = mapped_column(String(20), default="public")  # public, friends, private
+    privacy: Mapped[str] = mapped_column(String(20), default="friends")  # friends, private
     streak_count: Mapped[int] = mapped_column(Integer, default=0)
     streak_interval: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_posted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
