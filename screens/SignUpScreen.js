@@ -10,8 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
-import { Flame } from 'lucide-react-native';
 import { signUp, checkUsernameAvailable } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +19,7 @@ const BRAND = '#FF6B35';
 
 export default function SignUpScreen({ navigation }) {
   const { signUpUser } = useAuth();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -41,8 +42,8 @@ export default function SignUpScreen({ navigation }) {
       return false;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Weak Password', 'Password must be at least 6 characters');
+    if (password.length < 8) {
+      Alert.alert('Weak Password', 'Password must be at least 8 characters');
       return false;
     }
 
@@ -67,7 +68,7 @@ export default function SignUpScreen({ navigation }) {
         return;
       }
 
-      const { user, error } = await signUp(email, password, username);
+      const { user, error } = await signUp(email, password, username, name.trim() || undefined);
 
       if (error) {
         if (error.message.includes('already registered')) {
@@ -100,17 +101,25 @@ export default function SignUpScreen({ navigation }) {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoIconRing}>
-                <Flame color={BRAND} size={22} fill={BRAND} />
-              </View>
-              <Text style={styles.logoText}>streakd</Text>
-            </View>
+            <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.subtitle}>Create your account</Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Name</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Your full name"
+                placeholderTextColor="rgba(255,255,255,0.3)"
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                editable={!loading}
+              />
+            </View>
+
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
               <TextInput
@@ -208,27 +217,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 44,
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: 16,
-  },
-  logoIconRing: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,107,53,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -1,
   },
   subtitle: {
     color: 'rgba(255,255,255,0.5)',

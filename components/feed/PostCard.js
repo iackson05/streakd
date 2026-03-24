@@ -7,7 +7,8 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { Trash2 } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
+import { TrashIcon } from 'phosphor-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { apiGet, apiPost } from '../../services/api';
@@ -46,6 +47,7 @@ const REACTIONS = [
 ];
 
 export default function PostCard({ post, onDelete, initialUserReaction }) {
+  const navigation = useNavigation();
   const { user } = useAuth();
   const { removePost } = useData();
   const [userReaction, setUserReaction] = useState(initialUserReaction);
@@ -60,9 +62,22 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
   const isOwnPost = post.user_id === user?.id;
 
   useEffect(() => {
+    let cancelled = false;
+
     if (initialUserReaction === undefined) {
-      loadUserReaction();
+      (async () => {
+        try {
+          const data = await apiGet(`/reactions/post/${post.id}`);
+          if (!cancelled) {
+            setUserReaction(data?.[0]?.react_emoji || null);
+          }
+        } catch (error) {
+          console.error('Error loading user reaction:', error);
+        }
+      })();
     }
+
+    return () => { cancelled = true; };
   }, [post.id, initialUserReaction]);
 
   useEffect(() => {
@@ -79,15 +94,6 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
       setUserReaction(initialUserReaction);
     }
   }, [initialUserReaction]);
-
-  const loadUserReaction = async () => {
-    try {
-      const data = await apiGet(`/reactions/post/${post.id}`);
-      setUserReaction(data?.[0]?.react_emoji || null);
-    } catch (error) {
-      console.error('Error loading user reaction:', error);
-    }
-  };
 
   const handleReaction = async (emoji, key) => {
     try {
@@ -154,19 +160,27 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
             resizeMode="cover"
           />
 
-          {/* Top gradient overlay */}
-          <View style={styles.gradientTop} />
-
           {/* Top — Avatar, username, goal, streak, delete */}
           <View style={styles.topSection}>
-            <Image
-              source={{ uri: post.profile_picture_url }}
-              style={[styles.avatar, isOwnPost && styles.avatarOwn]}
-            />
-            <View style={styles.userInfo}>
-              <Text style={styles.username}>{post.username}</Text>
-              <Text style={styles.goalText} numberOfLines={1}>{post.goal}</Text>
-            </View>
+            <TouchableOpacity
+              disabled={isOwnPost}
+              onPress={() => !isOwnPost && navigation.navigate('UserProfile', {
+                userId: post.user_id,
+                username: post.username,
+              })}
+              style={styles.userTouchable}
+            >
+              <Image
+                source={{ uri: post.profile_picture_url }}
+                style={[styles.avatar, isOwnPost && styles.avatarOwn]}
+              />
+              <View style={styles.userInfo}>
+                <Text style={[styles.username, post.is_subscribed && styles.usernameSubscribed]}>
+                  {post.username}
+                </Text>
+                <Text style={styles.goalText} numberOfLines={1}>{post.goal}</Text>
+              </View>
+            </TouchableOpacity>
 
             {/* Streak badge */}
             {post.streak_count > 0 && (
@@ -178,13 +192,10 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
 
             {isOwnPost && (
               <TouchableOpacity onPress={handleDelete} style={styles.deleteButton}>
-                <Trash2 color="rgba(255,255,255,0.6)" size={15} />
+                <TrashIcon color="rgba(255,255,255,0.6)" size={15} />
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Bottom gradient overlay */}
-          <View style={styles.gradientBottom} />
 
           {/* Bottom — Caption & Reactions */}
           <View style={styles.bottomSection}>
@@ -278,6 +289,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  userTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
   avatar: {
     width: 40,
     height: 40,
@@ -297,6 +314,9 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
+  },
+  usernameSubscribed: {
+    color: '#FF6B35',
   },
   goalText: {
     color: 'rgba(255,255,255,0.55)',

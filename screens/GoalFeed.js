@@ -11,16 +11,19 @@ import {
   RefreshControl,
   Alert,
 } from 'react-native';
-import { ArrowLeft, Plus, Check } from 'lucide-react-native';
+import { ArrowLeftIcon, PlusIcon, CheckIcon, ArchiveIcon } from 'phosphor-react-native';
 import PostCard from '../components/feed/PostCard';
 import { getGoalPosts, getUserReactionsForPosts } from '../services/posts';
-import { completeGoal } from '../services/goals';
+import { completeGoal, archiveGoal } from '../services/goals';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { formatTimestamp } from '../utils/formatTimestamp';
 
 export default function GoalFeed({ route, navigation }) {
   const { user } = useAuth();
-  const { markGoalCompleted } = useData();
+  const { markGoalCompleted, markGoalArchived } = useData();
+  const { isSubscribed } = useSubscription();
   const goalId = route?.params?.goalId;
   const goalDescription = route?.params?.goalDescription;
   const goalName = route?.params?.goalName;
@@ -71,57 +74,83 @@ export default function GoalFeed({ route, navigation }) {
     navigation.navigate('CreatePost', { goalId });
   };
 
-  const handleCompleteGoal = () => {
+  const handleCompleteOrArchive = () => {
     const postCount = posts.length;
 
-    Alert.alert(
-      'Complete Goal',
-      postCount > 0
-        ? `Congratulations on completing "${goalName}"!\n\nThis will permanently delete all ${postCount} post${postCount > 1 ? 's' : ''} for this goal. Save any photos you want to keep to your device before continuing.`
-        : `Mark "${goalName}" as completed?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Complete Goal',
-          style: 'default',
-          onPress: async () => {
-            setCompleting(true);
-            try {
-              const { error } = await completeGoal(goalId, user.id);
-              if (error) throw error;
+    if (isSubscribed) {
+      // Streakd+: offer archive (posts preserved)
+      Alert.alert(
+        'Archive Goal',
+        postCount > 0
+          ? `Archive "${goalName}"? Your ${postCount} post${postCount > 1 ? 's' : ''} will be preserved in your Archived Goals section.`
+          : `Archive "${goalName}"? It will move to your Archived Goals section.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Archive',
+            onPress: async () => {
+              setCompleting(true);
+              try {
+                const { error } = await archiveGoal(goalId);
+                if (error) throw error;
 
-              // Update cache
-              markGoalCompleted(goalId);
+                markGoalArchived(goalId);
 
-              Alert.alert(
-                'Goal Completed!',
-                'Great job! Your goal has been marked as completed.',
-                [{ text: 'OK', onPress: () => navigation.goBack() }]
-              );
-            } catch (error) {
-              console.error('Error completing goal:', error);
-              Alert.alert('Error', 'Failed to complete goal. Please try again.');
-            } finally {
-              setCompleting(false);
-            }
+                Alert.alert(
+                  'Goal Archived!',
+                  'Your goal and all its posts are saved in your Archived Goals.',
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+              } catch (error) {
+                console.error('Error archiving goal:', error);
+                Alert.alert('Error', 'Failed to archive goal. Please try again.');
+              } finally {
+                setCompleting(false);
+              }
+            },
           },
-        },
-      ]
-    );
-  };
+        ]
+      );
+    } else {
+      // Free tier: complete goal, remind about Streakd+ archival
+      Alert.alert(
+        'Complete Goal',
+        postCount > 0
+          ? `Mark "${goalName}" as completed?\n\nYour ${postCount} post${postCount > 1 ? 's' : ''} will no longer appear on your profile.\n\n✨ Streakd+ users can archive goals and keep all their posts forever.`
+          : `Mark "${goalName}" as completed?\n\n✨ Upgrade to Streakd+ to archive goals and keep your posts forever.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Learn About Streakd+',
+            onPress: () => navigation.navigate('Paywall'),
+          },
+          {
+            text: 'Complete',
+            style: 'default',
+            onPress: async () => {
+              setCompleting(true);
+              try {
+                const { error } = await completeGoal(goalId, user.id);
+                if (error) throw error;
 
-  const formatTimestamp = (timestamp) => {
-    const now = new Date();
-    const posted = new Date(timestamp);
-    const diffMs = now - posted;
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+                markGoalCompleted(goalId);
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+                Alert.alert(
+                  'Goal Completed!',
+                  'Great job! Your goal has been marked as completed.',
+                  [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+              } catch (error) {
+                console.error('Error completing goal:', error);
+                Alert.alert('Error', 'Failed to complete goal. Please try again.');
+              } finally {
+                setCompleting(false);
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   if (loading) {
@@ -142,26 +171,28 @@ export default function GoalFeed({ route, navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{goalName || 'Goal Feed'}</Text>
+
         <View style={styles.headerActions}>
           <TouchableOpacity
-            onPress={handleCompleteGoal}
-            style={styles.completeButton}
+            onPress={handleCompleteOrArchive}
+            style={[styles.completeButton, isSubscribed && styles.archiveButton]}
             disabled={completing}
           >
             {completing ? (
               <ActivityIndicator color="#fff" size="small" />
+            ) : isSubscribed ? (
+              <ArchiveIcon color="#fff" size={18} />
             ) : (
-              <Check color="#fff" size={18} />
+              <CheckIcon color="#fff" size={18} />
             )}
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleAddPost}
             style={styles.addButton}
           >
-            <Plus color="rgba(255,255,255,0.7)" size={20} />
+            <PlusIcon color="rgba(255,255,255,0.7)" size={20} />
           </TouchableOpacity>
         </View>
       </View>
@@ -209,6 +240,7 @@ export default function GoalFeed({ route, navigation }) {
                 reaction_fist: post.reaction_fist,
                 reaction_party: post.reaction_party,
                 reaction_heart: post.reaction_heart,
+                is_subscribed: post.post_user_is_subscribed || false,
               }}
               initialUserReaction={userReactions[post.id] || null}
               onDelete={(postId) => {
@@ -300,6 +332,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#22c55e',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  archiveButton: {
+    backgroundColor: '#FF6B35',
   },
   addButton: {
     width: 40,

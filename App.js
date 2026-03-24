@@ -4,10 +4,15 @@ import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { DataProvider } from './contexts/DataContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { apiPut } from './services/api';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { Platform, StyleSheet } from 'react-native';
+import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
+import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync();
 import Feed from './screens/Feed';
 import Profile from './screens/Profile';
 import Settings from './screens/Settings';
@@ -20,6 +25,9 @@ import SignUpScreen from './screens/SignUpScreen';
 import CreatePost from './screens/CreatePost';
 import Friends from './screens/Friends';
 import Onboarding from './screens/Onboarding';
+import Paywall from './screens/Paywall';
+import LegalText from './screens/LegalText';
+import UserProfile from './screens/UserProfile';
 
 
 const Stack = createStackNavigator();
@@ -38,9 +46,11 @@ function AppContent() {
   const { user, loading, isNewUser } = useAuth();
   const notificationListener = useRef();
   const responseListener = useRef();
+  const lastRegisteredUserId = useRef(null);
 
   useEffect(() => {
-    if (user) {
+    if (user && user.id !== lastRegisteredUserId.current) {
+      lastRegisteredUserId.current = user.id;
       registerForPushNotifications(user.id);
     }
 
@@ -133,7 +143,13 @@ function AppContent() {
           // Authenticated screens - only shown when user is logged in
           <>
             <Stack.Screen name="Onboarding" component={Onboarding} />
-            <Stack.Screen name="Feed" component={Feed} />
+            <Stack.Screen
+              name="Feed"
+              component={Feed}
+              options={({ route }) => ({
+                animationEnabled: !route.params?.fromOnboarding,
+              })}
+            />
             <Stack.Screen name="Profile" component={Profile} />
             <Stack.Screen name="Settings" component={Settings} />
             <Stack.Screen name="EditProfile" component={EditProfile} />
@@ -142,6 +158,9 @@ function AppContent() {
             <Stack.Screen name="GoalFeed" component={GoalFeed} />
             <Stack.Screen name="Friends" component={Friends} />
             <Stack.Screen name="CreatePost" component={CreatePost} />
+            <Stack.Screen name="Paywall" component={Paywall} />
+            <Stack.Screen name="LegalText" component={LegalText} />
+            <Stack.Screen name="UserProfile" component={UserProfile} />
           </>
         ) : (
           // Auth screens - only shown when user is NOT logged in
@@ -156,12 +175,29 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
     <GestureHandlerRootView style={styles.container}>
       <AuthProvider>
-        <DataProvider>
-          <AppContent />
-        </DataProvider>
+        <SubscriptionProvider>
+          <DataProvider>
+            <AppContent />
+          </DataProvider>
+        </SubscriptionProvider>
       </AuthProvider>
     </GestureHandlerRootView>
   );

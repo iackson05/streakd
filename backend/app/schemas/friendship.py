@@ -17,6 +17,7 @@ class FriendshipResponse(BaseModel):
     # Joined user info
     friend_username: str | None = None
     friend_profile_picture_url: str | None = None
+    friend_is_subscribed: bool = False
 
     model_config = {"from_attributes": True}
 

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = Constants.expoConfig?.extra?.apiUrl || 'http://localhost:8000';
 
 const TOKEN_KEYS = {
   ACCESS: 'streakd_access_token',

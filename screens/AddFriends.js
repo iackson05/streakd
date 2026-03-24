@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { ArrowLeft, Search, UserPlus, Check, Clock, X } from 'lucide-react-native';
+import { ArrowLeftIcon, MagnifyingGlassIcon, UserPlusIcon, CheckIcon, ClockIcon, XIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import {
   searchUsers as searchUsersService,
@@ -138,7 +138,7 @@ export default function AddFriends({ navigation }) {
           onPress={() => handleSendRequest(userId)}
           style={styles.addButton}
         >
-          <UserPlus color="rgba(255,255,255,0.7)" size={16} />
+          <UserPlusIcon color="rgba(255,255,255,0.7)" size={16} />
         </TouchableOpacity>
       );
     }
@@ -149,7 +149,7 @@ export default function AddFriends({ navigation }) {
           onPress={() => handleRemoveFriend(userId)}
           style={styles.friendButton}
         >
-          <Check color="#000" size={16} />
+          <CheckIcon color="#000" size={16} />
         </TouchableOpacity>
       );
     }
@@ -160,7 +160,7 @@ export default function AddFriends({ navigation }) {
           onPress={() => handleRemoveFriend(userId)}
           style={styles.pendingButton}
         >
-          <Clock color="rgba(255,255,255,0.7)" size={16} />
+          <ClockIcon color="rgba(255,255,255,0.7)" size={16} />
         </TouchableOpacity>
       );
     }
@@ -172,13 +172,13 @@ export default function AddFriends({ navigation }) {
             onPress={() => handleAcceptRequest(userId)}
             style={styles.acceptButton}
           >
-            <Check color="#000" size={16} />
+            <CheckIcon color="#000" size={16} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => handleRemoveFriend(userId)}
             style={styles.rejectButton}
           >
-            <X color="rgba(255,255,255,0.7)" size={16} />
+            <XIcon color="rgba(255,255,255,0.7)" size={16} />
           </TouchableOpacity>
         </View>
       );
@@ -197,7 +197,7 @@ export default function AddFriends({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add Friends</Text>
         <View style={styles.headerSpacer} />
@@ -206,7 +206,7 @@ export default function AddFriends({ navigation }) {
       <View style={styles.content}>
         {/* Search */}
         <View style={styles.searchContainer}>
-          <Search 
+          <MagnifyingGlassIcon
             color="rgba(255,255,255,0.4)" 
             size={16} 
             style={styles.searchIcon}
@@ -234,17 +234,17 @@ export default function AddFriends({ navigation }) {
           ) : searchQuery.trim() === '' ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Search color="rgba(255,255,255,0.3)" size={20} />
+                <MagnifyingGlassIcon color="rgba(255,255,255,0.3)" size={20} />
               </View>
               <Text style={styles.emptyText}>Search for users</Text>
               <Text style={styles.emptySubtext}>
-                Enter a username or email to find friends
+                Enter a username to find friends
               </Text>
             </View>
           ) : users.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIcon}>
-                <Search color="rgba(255,255,255,0.3)" size={20} />
+                <MagnifyingGlassIcon color="rgba(255,255,255,0.3)" size={20} />
               </View>
               <Text style={styles.emptyText}>No users found</Text>
               <Text style={styles.emptySubtext}>
@@ -254,16 +254,21 @@ export default function AddFriends({ navigation }) {
           ) : (
             users.map((u) => (
               <View key={u.id} style={styles.userCard}>
-                <Image
-                  source={{ 
-                    uri: u.profile_picture_url || 
-                         `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
-                  }}
-                  style={styles.userAvatar}
-                />
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>{u.username}</Text>
-                </View>
+                <TouchableOpacity
+                  style={styles.userTouchable}
+                  onPress={() => navigation.navigate('UserProfile', { userId: u.id, username: u.username })}
+                >
+                  <Image
+                    source={{
+                      uri: u.profile_picture_url ||
+                           `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`
+                    }}
+                    style={styles.userAvatar}
+                  />
+                  <View style={styles.userInfo}>
+                    <Text style={styles.userName}>{u.username}</Text>
+                  </View>
+                </TouchableOpacity>
                 {getFriendshipButton(u.id)}
               </View>
             ))
@@ -360,6 +365,12 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
+  },
+  userTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   userInfo: {
     flex: 1,

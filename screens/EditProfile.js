@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { ArrowLeft, Camera } from 'lucide-react-native';
+import { ArrowLeftIcon, CameraIcon } from 'phosphor-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -33,12 +33,14 @@ export default function EditProfile({ navigation }) {
   const [usernameError, setUsernameError] = useState('');
 
   const hasChanges = username !== profile?.username || newImageUri !== null;
+  const debounceTimer = useRef(null);
 
-  const handleUsernameChange = async (text) => {
+  const handleUsernameChange = useCallback((text) => {
     setUsername(text);
     setUsernameError('');
 
     if (text.trim() === profile?.username) {
+      setCheckingUsername(false);
       return;
     }
 
@@ -52,15 +54,21 @@ export default function EditProfile({ navigation }) {
       return;
     }
 
-    // Check availability with debounce
-    setCheckingUsername(true);
-    const { available, error } = await checkUsernameAvailable(text.trim(), user.id);
-    setCheckingUsername(false);
-
-    if (!available && !error) {
-      setUsernameError('Username is already taken');
+    // Debounce the availability check
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
     }
-  };
+
+    setCheckingUsername(true);
+    debounceTimer.current = setTimeout(async () => {
+      const { available, error } = await checkUsernameAvailable(text.trim());
+      setCheckingUsername(false);
+
+      if (!available && !error) {
+        setUsernameError('Username is already taken');
+      }
+    }, 400);
+  }, [profile?.username]);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -130,7 +138,7 @@ export default function EditProfile({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity
@@ -170,7 +178,7 @@ export default function EditProfile({ navigation }) {
                 style={styles.profileImage}
               />
               <View style={styles.cameraOverlay}>
-                <Camera color="#fff" size={24} />
+                <CameraIcon color="#fff" size={24} />
               </View>
             </TouchableOpacity>
             <Text style={styles.changePhotoText}>Tap to change photo</Text>

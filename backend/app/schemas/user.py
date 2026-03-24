@@ -1,22 +1,32 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class UserProfile(BaseModel):
     id: uuid.UUID
     username: str
+    name: str | None = None
     email: str
     profile_picture_url: str | None
     created_at: datetime
     friend_count: int = 0
+    is_subscribed: bool = False
 
     model_config = {"from_attributes": True}
 
 
+class SubscriptionStatusUpdate(BaseModel):
+    is_subscribed: bool
+
+
 class UsernameUpdate(BaseModel):
-    username: str
+    username: str = Field(..., min_length=3, max_length=50, pattern=r'^[a-zA-Z0-9_]+$')
+
+
+class NameUpdate(BaseModel):
+    name: str = Field(..., max_length=100)
 
 
 class NotificationSettingsSchema(BaseModel):

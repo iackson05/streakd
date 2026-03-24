@@ -14,6 +14,7 @@ from app.models.user import User
 from app.models.goal import Goal
 from app.models.post import Post
 from app.models.friendship import Friendship
+from app.models.block import Block
 from app.schemas.post import PostResponse
 from app.services.storage import upload_file, delete_file
 
@@ -37,6 +38,7 @@ def _post_to_response(post: Post, user: User, goal: Goal) -> PostResponse:
         goal_title=goal.title if goal else None,
         goal_privacy=goal.privacy if goal else None,
         streak_count=goal.streak_count if goal else None,
+        post_user_is_subscribed=user.is_subscribed if user else False,
     )
 
 
@@ -63,8 +65,25 @@ async def get_feed_posts(
         else:
             friend_ids.add(f.user_id)
 
-    # Include self
-    all_ids = list(friend_ids | {current_user.id})
+    # Get blocked user IDs (both directions)
+    block_result = await db.execute(
+        select(Block).where(
+            or_(
+                Block.blocker_id == current_user.id,
+                Block.blocked_id == current_user.id,
+            )
+        )
+    )
+    blocks = block_result.scalars().all()
+    blocked_ids = set()
+    for b in blocks:
+        if b.blocker_id == current_user.id:
+            blocked_ids.add(b.blocked_id)
+        else:
+            blocked_ids.add(b.blocker_id)
+
+    # Include self, exclude blocked
+    all_ids = list((friend_ids - blocked_ids) | {current_user.id})
 
     # Posts from last 24 hours
     since = datetime.now(timezone.utc) - timedelta(hours=24)
@@ -86,12 +105,52 @@ async def get_feed_posts(
     return result
 
 
+@router.get("/user", response_model=list[PostResponse])
+async def get_user_posts(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(
+        select(Post, User, Goal)
+        .join(User, Post.user_id == User.id)
+        .join(Goal, Post.goal_id == Goal.id)
+        .where(Post.user_id == current_user.id)
+        .order_by(Post.created_at.desc())
+    )
+    return [_post_to_response(post, user, goal) for post, user, goal in result.all()]
+
+
 @router.get("/goal/{goal_id}", response_model=list[PostResponse])
 async def get_goal_posts(
     goal_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Verify goal exists and check authorization
+    goal_result = await db.execute(select(Goal).where(Goal.id == goal_id))
+    goal = goal_result.scalar_one_or_none()
+    if not goal:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    # Owner can always see their own goal posts
+    if goal.user_id != current_user.id:
+        # Private goals are only visible to the owner
+        if goal.privacy == "private":
+            raise HTTPException(status_code=403, detail="This goal is private")
+
+        # Friends-only goals require an accepted friendship
+        friend_check = await db.execute(
+            select(Friendship).where(
+                Friendship.status == "accepted",
+                or_(
+                    and_(Friendship.user_id == current_user.id, Friendship.friend_id == goal.user_id),
+                    and_(Friendship.user_id == goal.user_id, Friendship.friend_id == current_user.id),
+                ),
+            )
+        )
+        if not friend_check.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="You must be friends to view this goal")
+
     result = await db.execute(
         select(Post, User, Goal)
         .join(User, Post.user_id == User.id)

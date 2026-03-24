@@ -11,11 +11,11 @@ import { apiFetch, apiGet, saveTokens, clearTokens } from './api';
 /**
  * Sign up a new user with email/password
  */
-export const signUp = async (email, password, username) => {
+export const signUp = async (email, password, username, name) => {
   try {
     const res = await apiFetch('/auth/signup', {
       method: 'POST',
-      body: JSON.stringify({ email, password, username }),
+      body: JSON.stringify({ email, password, username, name }),
     });
 
     if (!res.ok) {

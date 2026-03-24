@@ -1,0 +1,69 @@
+STREAKD TERMS OF SERVICE
+Last Updated: March 19, 2026
+
+1. ACCEPTANCE OF TERMS
+By downloading, installing, or using the Streakd mobile application ("App"), you agree to be bound by these Terms of Service ("Terms"). If you do not agree, do not use the App.
+
+2. DESCRIPTION OF SERVICE
+Streakd is a goal accountability platform that allows users to create goals, post progress photos on a scheduled basis, and share their progress with friends. The App includes both free and paid subscription tiers.
+
+3. ACCOUNT REGISTRATION
+- You must provide a valid email address, username, and password to create an account.
+- You are responsible for maintaining the security of your account credentials.
+- You must be at least 13 years old to use the App.
+- You may not create accounts for others without their permission.
+
+4. USER CONTENT
+- You retain ownership of content you post (photos, captions, goal descriptions).
+- By posting content, you grant Streakd a non-exclusive, worldwide license to display your content to your friends within the App, as determined by your privacy settings.
+- You are solely responsible for the content you post. You agree not to post content that is illegal, harmful, threatening, abusive, harassing, defamatory, or otherwise objectionable.
+- We reserve the right to remove content that violates these Terms.
+
+5. ACCEPTABLE USE
+You agree not to:
+- Use the App for any illegal purpose
+- Harass, bully, or intimidate other users
+- Post explicit, violent, or otherwise inappropriate content
+- Attempt to gain unauthorized access to other users' accounts
+- Interfere with or disrupt the App or its servers
+- Create multiple accounts to circumvent limitations
+- Use automated tools to access the App
+
+6. SUBSCRIPTIONS (STREAKD+)
+- Streakd offers a paid subscription ("Streakd+") with additional features including unlimited active goals and goal archiving.
+- Subscriptions are billed monthly through Apple's App Store.
+- Payment is charged to your Apple ID account at confirmation of purchase.
+- Subscriptions automatically renew unless auto-renew is turned off at least 24 hours before the end of the current period.
+- You can manage and cancel subscriptions in your Apple ID Account Settings.
+- No refunds are provided for partial subscription periods.
+
+7. ACCOUNT DELETION
+- You may delete your account at any time from within the App (Settings > Delete Account).
+- Account deletion is permanent and irreversible.
+- Upon deletion, all your data including your profile, goals, posts, images, friendships, and settings will be permanently removed.
+
+8. PRIVACY
+Your use of the App is also governed by our Privacy Policy. Please review it to understand how we collect and use your information.
+
+9. INTELLECTUAL PROPERTY
+- The Streakd name, logo, and App design are the property of Streakd.
+- You may not copy, modify, distribute, or create derivative works based on the App.
+
+10. DISCLAIMER OF WARRANTIES
+THE APP IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WE DO NOT GUARANTEE THAT THE APP WILL BE UNINTERRUPTED, ERROR-FREE, OR SECURE.
+
+11. LIMITATION OF LIABILITY
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, STREAKD SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES ARISING FROM YOUR USE OF THE APP.
+
+12. TERMINATION
+We reserve the right to suspend or terminate your account at any time for violation of these Terms, without prior notice.
+
+13. CHANGES TO TERMS
+We may modify these Terms at any time. Continued use of the App after changes constitutes acceptance. We will make reasonable efforts to notify users of significant changes.
+
+14. GOVERNING LAW
+These Terms shall be governed by the laws of the jurisdiction in which Streakd operates.
+
+15. CONTACT
+For questions about these Terms, contact us at:
+Email: support@streakd.app

@@ -14,11 +14,12 @@ import {
   Alert,
   Animated,
 } from 'react-native';
-import { Users, Plus, X, Flame } from 'lucide-react-native';
+import { UsersIcon, PlusIcon, XIcon, FireIcon } from 'phosphor-react-native';
 import PostCard from '../components/feed/PostCard';
 import { useAuth } from '../contexts/AuthContext';
 import { getFeedPosts, getUserReactionsForPosts } from '../services/posts';
 import { getUserActiveGoals } from '../services/goals';
+import { formatTimestamp } from '../utils/formatTimestamp';
 
 export default function Feed({ navigation, route }) {
   const { user, profile, loading: authLoading } = useAuth();
@@ -132,10 +133,7 @@ export default function Feed({ navigation, route }) {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.logoButton}>
-          <View style={styles.logoIconRing}>
-            <Flame color="#FF6B35" size={14} fill="#FF6B35" />
-          </View>
-          <Text style={styles.logoText}>streakd</Text>
+          <Image source={require('../assets/logo.png')} style={styles.headerLogo} resizeMode='contain'/>
         </TouchableOpacity>
 
         <View style={styles.headerActions}>
@@ -147,7 +145,7 @@ export default function Feed({ navigation, route }) {
             {loadingGoals ? (
               <ActivityIndicator color="rgba(255,255,255,0.7)" size="small" />
             ) : (
-              <Plus color="rgba(255,255,255,0.7)" size={20} />
+              <PlusIcon color="rgba(255,255,255,0.7)" size={20} />
             )}
           </TouchableOpacity>
 
@@ -155,7 +153,7 @@ export default function Feed({ navigation, route }) {
             onPress={() => navigation.navigate('Friends')}
             style={styles.headerButton}
           >
-            <Users color="rgba(255,255,255,0.7)" size={20} />
+            <UsersIcon color="rgba(255,255,255,0.7)" size={20} />
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -200,7 +198,7 @@ export default function Feed({ navigation, route }) {
         ) : posts.length === 0 ? (
           <View style={styles.emptyContainer}>
             <View style={styles.emptyIconRing}>
-              <Flame color="#FF6B35" size={32} fill="#FF6B35" />
+              <FireIcon color="#FF6B35" size={64}/>
             </View>
             <Text style={styles.emptyText}>Your feed is quiet</Text>
             <Text style={styles.emptySubtext}>
@@ -210,7 +208,7 @@ export default function Feed({ navigation, route }) {
               style={styles.emptyButton}
               onPress={() => navigation.navigate('AddFriends')}
             >
-              <Users color="#FF6B35" size={16} />
+              <UsersIcon color="#FF6B35" size={16} />
               <Text style={styles.emptyButtonText}>Find friends</Text>
             </TouchableOpacity>
           </View>
@@ -232,6 +230,7 @@ export default function Feed({ navigation, route }) {
                 reaction_fist: post.reaction_fist,
                 reaction_party: post.reaction_party,
                 reaction_heart: post.reaction_heart,
+                is_subscribed: post.post_user_is_subscribed || false,
               }}
               initialUserReaction={userReactions[post.id] || null}
               onDelete={(postId) => {
@@ -258,10 +257,8 @@ export default function Feed({ navigation, route }) {
           style={[styles.welcomeOverlay, { opacity: welcomeOpacity }]}
           pointerEvents="none"
         >
-          <View style={styles.welcomeLogoRing}>
-            <Flame color="#FF6B35" size={36} fill="#FF6B35" />
-          </View>
-          <Text style={styles.welcomeTitle}>Welcome to streakd</Text>
+          <Image source={require('../assets/logo.png')} style={styles.welcomeLogo} resizeMode="contain" />
+          <Text style={styles.welcomeTitle}>Welcome</Text>
           <Text style={styles.welcomeSubtitle}>Your journey starts now 🔥</Text>
         </Animated.View>
       )}
@@ -283,7 +280,7 @@ export default function Feed({ navigation, route }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Goal</Text>
               <TouchableOpacity onPress={() => setShowGoalSelector(false)}>
-                <X color="#fff" size={24} />
+                <XIcon color="#fff" size={24} />
               </TouchableOpacity>
             </View>
 
@@ -311,20 +308,6 @@ export default function Feed({ navigation, route }) {
   );
 }
 
-// Helper function to format timestamp
-function formatTimestamp(timestamp) {
-  const now = new Date();
-  const posted = new Date(timestamp);
-  const diffMs = now - posted;
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
-}
 
 const styles = StyleSheet.create({
   container: {
@@ -343,15 +326,13 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyIconRing: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,107,53,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 4,
+  },
+  emptyLogo: {
+    width: 64,
+    height: 64,
   },
   emptyText: {
     color: 'rgba(255,255,255,0.7)',
@@ -393,26 +374,10 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.05)',
     backgroundColor: 'rgba(0,0,0,0.8)',
   },
-  logoButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  logoIconRing: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255,107,53,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '700',
-    letterSpacing: -0.5,
+  logoButton: {},
+  headerLogo: {
+    width: 80,
+    height: 32,
   },
   headerActions: {
     flexDirection: 'row',
@@ -492,15 +457,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 16,
   },
-  welcomeLogoRing: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    backgroundColor: 'rgba(255,107,53,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  welcomeLogo: {
+    width: 120,
+    height: 120,
     marginBottom: 8,
   },
   welcomeTitle: {

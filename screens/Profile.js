@@ -19,13 +19,14 @@ import {
 } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import Slider from '@react-native-community/slider';
-import { ArrowLeft, Settings, Camera, Calendar, Users as UsersIcon, Plus, X, Trash2, Lock, Users, Trophy } from 'lucide-react-native';
+import { ArrowLeftIcon, GearSixIcon, CameraIcon, UsersIcon, PlusIcon, XIcon, TrashIcon, LockIcon, TrophyIcon } from 'phosphor-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 import { createGoal, deleteGoal } from '../services/goals';
 
-const MAX_ACTIVE_GOALS = 3;
+const MAX_ACTIVE_GOALS_FREE = 2;
 
 // Swipeable Goal Card Component
 function SwipeableGoalCard({ goal, postCount, onPress, onDelete }) {
@@ -53,7 +54,7 @@ function SwipeableGoalCard({ goal, postCount, onPress, onDelete }) {
         }}
       >
         <Animated.View style={[styles.deleteActionContent, { opacity, transform: [{ scale }] }]}>
-          <Trash2 color="#fff" size={20} />
+          <TrashIcon color="#fff" size={20} />
         </Animated.View>
       </TouchableOpacity>
     );
@@ -96,9 +97,9 @@ function SwipeableGoalCard({ goal, postCount, onPress, onDelete }) {
                 goal.privacy === 'private' ? styles.privacyTagPrivate : styles.privacyTagFriends
               ]}>
                 {goal.privacy === 'private' ? (
-                  <Lock color="rgba(255,255,255,0.7)" size={10} />
+                  <LockIcon color="rgba(255,255,255,0.7)" size={10} />
                 ) : (
-                  <Users color="rgba(255,255,255,0.7)" size={10} />
+                  <UsersIcon color="rgba(255,255,255,0.7)" size={10} />
                 )}
                 <Text style={styles.privacyTagText}>
                   {goal.privacy === 'private' ? 'Private' : 'Friends'}
@@ -118,6 +119,8 @@ function SwipeableGoalCard({ goal, postCount, onPress, onDelete }) {
 export default function Profile({ navigation }) {
   const { user, profile, loading: authLoading } = useAuth();
   const { profileData, fetchProfileData, addGoal, removeGoal } = useData();
+  const { isSubscribed, subscriptionLoading } = useSubscription();
+  const [archivedExpanded, setArchivedExpanded] = useState(false);
 
   // Goal creation modal state
   const [showCreateGoal, setShowCreateGoal] = useState(false);
@@ -135,14 +138,6 @@ export default function Profile({ navigation }) {
     }
   }, [user]);
 
-  // Always force-refresh when screen gains focus so stats (friend count, posts) are accurate
-  useFocusEffect(
-    useCallback(() => {
-      if (user) {
-        fetchProfileData(true);
-      }
-    }, [user])
-  );
 
   // Manual refresh (pull to refresh)
   const handleRefresh = async () => {
@@ -157,19 +152,19 @@ export default function Profile({ navigation }) {
     return `Every ${days} days`;
   };
 
+  const activeGoals = profileData.goals.filter(g => !g.completed);
+  const archivedGoals = profileData.goals.filter(g => g.archived);
+  const atGoalLimit = !isSubscribed && activeGoals.length >= MAX_ACTIVE_GOALS_FREE;
+
   const handleCreateGoal = async () => {
     if (!newGoalTitle.trim()) {
       Alert.alert('Missing Title', 'Please enter a goal title');
       return;
     }
 
-    // Check goal limit
-    const activeGoals = profileData.goals.filter(g => !g.completed);
-    if (activeGoals.length >= MAX_ACTIVE_GOALS) {
-      Alert.alert(
-        'Goal Limit Reached',
-        `You can only have ${MAX_ACTIVE_GOALS} active goals at a time. Complete or delete an existing goal to create a new one.`
-      );
+    // Free tier: redirect to paywall when at limit
+    if (atGoalLimit) {
+      navigation.navigate('Paywall');
       return;
     }
 
@@ -215,32 +210,39 @@ export default function Profile({ navigation }) {
   const handleDeleteGoal = (goal) => {
     const postCount = profileData.posts.filter(p => p.goal_id === goal.id).length;
 
+    const upsellNote = !isSubscribed && postCount > 0
+      ? '\n\n✨ Streakd+ users can archive goals instead — keeping all posts forever.'
+      : '';
+
+    const buttons = [
+      { text: 'Cancel', style: 'cancel' },
+    ];
+
+    if (!isSubscribed && postCount > 0) {
+      buttons.push({ text: 'Learn About streakd+', onPress: () => navigation.navigate('Paywall') });
+    }
+
+    buttons.push({
+      text: 'Delete',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          const { error } = await deleteGoal(goal.id, user.id);
+          if (error) throw error;
+          removeGoal(goal.id);
+        } catch (error) {
+          console.error('Error deleting goal:', error);
+          Alert.alert('Error', 'Failed to delete goal');
+        }
+      },
+    });
+
     Alert.alert(
       'Delete Goal',
       postCount > 0
-        ? `This will delete "${goal.title}" and all ${postCount} associated post${postCount > 1 ? 's' : ''}. This action cannot be undone.`
+        ? `This will delete "${goal.title}" and all ${postCount} post${postCount > 1 ? 's' : ''}.${upsellNote}`
         : `Are you sure you want to delete "${goal.title}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const { error } = await deleteGoal(goal.id, user.id);
-              if (error) throw error;
-
-              // Update cache
-              removeGoal(goal.id);
-
-              Alert.alert('Success', 'Goal deleted');
-            } catch (error) {
-              console.error('Error deleting goal:', error);
-              Alert.alert('Error', 'Failed to delete goal');
-            }
-          },
-        },
-      ]
+      buttons
     );
   };
 
@@ -271,18 +273,34 @@ export default function Profile({ navigation }) {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile</Text>
-        <TouchableOpacity 
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>Profile</Text>
+          {subscriptionLoading ? (
+            <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" style={{ marginTop: 2 }} />
+          ) : !isSubscribed ? (
+            <TouchableOpacity
+              style={styles.streakdPlusBadge}
+              onPress={() => navigation.navigate('Paywall')}
+            >
+              <Text style={styles.streakdPlusBadgeText}>streakd+</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.streakdPlusActiveBadge}>
+              <Text style={styles.streakdPlusActiveBadgeText}>streakd+ ✓</Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity
           onPress={() => navigation.navigate('Settings')}
           style={styles.settingsButton}
         >
-          <Settings color="rgba(255,255,255,0.7)" size={20} />
+          <GearSixIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
       </View>
 
@@ -306,18 +324,22 @@ export default function Profile({ navigation }) {
             }}
             style={styles.avatar}
           />
-          <Text style={styles.name}>{profile.username}</Text>
-          <Text style={styles.username}>@{profile.username}</Text>
+          {profile.name ? (
+            <Text style={[styles.name, isSubscribed && styles.nameSubscribed]}>{profile.name}</Text>
+          ) : null}
+          <Text style={[styles.username, !profile.name && styles.usernameStandalone, isSubscribed && styles.usernameSubscribed]}>
+            @{profile.username}
+          </Text>
 
           {/* Stats */}
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
-              <Camera color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
+              <CameraIcon color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
               <Text style={styles.statValue}>{profileData.stats.totalPosts}</Text>
               <Text style={styles.statLabel}>Posts</Text>
             </View>
             <View style={styles.statItem}>
-              <Trophy color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
+              <TrophyIcon color="rgba(255,255,255,0.5)" size={12} style={styles.statIcon} />
               <Text style={styles.statValue}>{profileData.goals.filter(g => g.completed).length}</Text>
               <Text style={styles.statLabel}>Completed</Text>
             </View>
@@ -333,30 +355,37 @@ export default function Profile({ navigation }) {
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Active Goals</Text>
-            <Text style={styles.goalCount}>
-              {profileData.goals.filter(g => !g.completed).length}/{MAX_ACTIVE_GOALS}
-            </Text>
+            {!isSubscribed && (
+              <Text style={styles.goalCount}>
+                {activeGoals.length}/{MAX_ACTIVE_GOALS_FREE}
+              </Text>
+            )}
           </View>
           <TouchableOpacity
-            style={[
-              styles.addGoalButton,
-              profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS && styles.addGoalButtonDisabled
-            ]}
-            onPress={() => setShowCreateGoal(true)}
-            disabled={profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS}
+            style={[styles.addGoalButton, atGoalLimit && styles.addGoalButtonLimit]}
+            onPress={atGoalLimit ? () => navigation.navigate('Paywall') : () => setShowCreateGoal(true)}
           >
-            <Plus color={profileData.goals.filter(g => !g.completed).length >= MAX_ACTIVE_GOALS ? "rgba(255,255,255,0.3)" : "#fff"} size={16} />
+            <PlusIcon color={atGoalLimit ? "rgba(255,255,255,0.5)" : "#fff"} size={16} />
           </TouchableOpacity>
         </View>
 
-        {profileData.goals.filter(g => !g.completed).length === 0 ? (
+        {atGoalLimit && (
+          <TouchableOpacity style={styles.limitBanner} onPress={() => navigation.navigate('Paywall')}>
+            <Text style={styles.limitBannerText}>
+              Free accounts are limited to {MAX_ACTIVE_GOALS_FREE} active goals.{' '}
+              <Text style={styles.limitBannerLink}>Upgrade to Streakd+ →</Text>
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {activeGoals.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No active goals</Text>
             <Text style={styles.emptySubtext}>Create your first goal to get started!</Text>
           </View>
         ) : (
           <View style={styles.goalsContainer}>
-            {profileData.goals.filter(g => !g.completed).map((goal) => {
+            {activeGoals.map((goal) => {
               const goalPosts = profileData.posts.filter(p => p.goal_id === goal.id).length;
 
               return (
@@ -370,6 +399,57 @@ export default function Profile({ navigation }) {
               );
             })}
           </View>
+        )}
+
+        {/* Archived Goals Section (Streakd+ only) */}
+        {archivedGoals.length > 0 && (
+          <>
+            <TouchableOpacity
+              style={styles.sectionHeader}
+              onPress={() => setArchivedExpanded(prev => !prev)}
+            >
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Archived Goals</Text>
+                <Text style={styles.goalCount}>{archivedGoals.length}</Text>
+              </View>
+              <Text style={styles.expandChevron}>{archivedExpanded ? '▲' : '▼'}</Text>
+            </TouchableOpacity>
+
+            {archivedExpanded && (
+              <View style={styles.goalsContainer}>
+                {archivedGoals.map((goal) => {
+                  const goalPosts = profileData.posts.filter(p => p.goal_id === goal.id).length;
+                  return (
+                    <TouchableOpacity
+                      key={goal.id}
+                      style={styles.archivedGoalCard}
+                      onPress={() => handleGoalPress(goal)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.goalContent}>
+                        <View style={styles.goalHeader}>
+                          <View style={styles.goalTitleRow}>
+                            <Text style={styles.goalName}>{goal.title}</Text>
+                            {goal.streak_count > 0 && (
+                              <Text style={styles.goalStreak}>{goal.streak_count} 🔥</Text>
+                            )}
+                          </View>
+                          <View style={styles.goalMeta}>
+                            <View style={styles.archivedTag}>
+                              <Text style={styles.archivedTagText}>Archived</Text>
+                            </View>
+                            <Text style={styles.goalProgress}>
+                              {goalPosts} {goalPosts === 1 ? 'post' : 'posts'}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
       </ScrollView>
@@ -396,7 +476,7 @@ export default function Profile({ navigation }) {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create New Goal</Text>
               <TouchableOpacity onPress={() => setShowCreateGoal(false)}>
-                <X color="#fff" size={24} />
+                <XIcon color="#fff" size={24} />
               </TouchableOpacity>
             </View>
 
@@ -537,6 +617,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },
+  headerCenter: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  streakdPlusBadge: {
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.5)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  streakdPlusBadgeText: {
+    color: '#FF6B35',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  streakdPlusActiveBadge: {
+    backgroundColor: 'rgba(255, 107, 53, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.3)',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  streakdPlusActiveBadgeText: {
+    color: 'rgba(255, 107, 53, 0.8)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
   backButton: {
     width: 40,
     height: 40,
@@ -597,6 +707,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 24,
   },
+  nameSubscribed: {
+    color: '#FF6B35',
+  },
+  usernameSubscribed: {
+    color: '#FF6B35',
+  },
+  usernameStandalone: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
   statsRow: {
     flexDirection: 'row',
     gap: 32,
@@ -646,8 +767,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addGoalButtonDisabled: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+  addGoalButtonLimit: {
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.4)',
+  },
+  limitBanner: {
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.25)',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
+  limitBannerText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  limitBannerLink: {
+    color: '#FF6B35',
+    fontWeight: '600',
+  },
+  expandChevron: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 11,
+  },
+  archivedGoalCard: {
+    backgroundColor: '#0A0A0A',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 107, 53, 0.2)',
+  },
+  archivedTag: {
+    backgroundColor: 'rgba(255, 107, 53, 0.2)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  archivedTagText: {
+    color: '#FF6B35',
+    fontSize: 10,
+    fontWeight: '500',
   },
   goalsContainer: {
     gap: 12,

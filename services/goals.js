@@ -83,3 +83,16 @@ export const completeGoal = async (goalId, userId) => {
     return { goal: null, deletedPostCount: 0, error };
   }
 };
+
+/**
+ * Archive a goal (Streakd+ only) — marks complete and preserves all posts.
+ */
+export const archiveGoal = async (goalId) => {
+  try {
+    const goal = await apiPut(`/goals/${goalId}/archive`);
+    return { goal, error: null };
+  } catch (error) {
+    console.error('Error archiving goal:', error);
+    return { goal: null, error };
+  }
+};

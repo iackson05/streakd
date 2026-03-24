@@ -11,18 +11,19 @@ import {
   Linking,
 } from 'react-native';
 import {
-  ArrowLeft,
-  User,
-  Bell,
-  Lock,
-  Moon,
-  HelpCircle,
-  MessageSquare,
-  ChevronRight,
-  LogOut,
-  Trash2,
-} from 'lucide-react-native';
+  ArrowLeftIcon,
+  UserIcon,
+  BellIcon,
+  LockIcon,
+  MoonIcon,
+  QuestionIcon,
+  ChatTextIcon,
+  CaretRightIcon,
+  SignOutIcon,
+  TrashIcon,
+} from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
+import { apiDelete } from '../services/api';
 
 export default function Settings({ navigation }) {
   const { user, signOut } = useAuth();
@@ -55,20 +56,21 @@ export default function Settings({ navigation }) {
           style: 'destructive',
           onPress: () => {
             Alert.alert(
-              'Confirm Deletion',
-              'Type DELETE to confirm',
+              'Are you sure?',
+              'All your goals, posts, friends, and images will be permanently deleted.',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'I Understand',
+                  text: 'Delete My Account',
                   style: 'destructive',
                   onPress: async () => {
-                    // Note: Full account deletion would require a server-side function
-                    // For now, sign out and show a message
-                    Alert.alert(
-                      'Contact Support',
-                      'To delete your account, please contact support@streakd.app'
-                    );
+                    try {
+                      await apiDelete('/users/me');
+                      await signOut();
+                    } catch (error) {
+                      console.error('Error deleting account:', error);
+                      Alert.alert('Error', 'Failed to delete account. Please try again.');
+                    }
                   },
                 },
               ]
@@ -87,12 +89,11 @@ export default function Settings({ navigation }) {
       case 'Notifications':
         navigation.navigate('NotificationsSettings');
         break;
-      case 'Privacy':
-        Alert.alert(
-          'Privacy',
-          'Your data is stored securely and never shared with third parties without your consent.',
-          [{ text: 'OK' }]
-        );
+      case 'Privacy Policy':
+        navigation.navigate('LegalText', { type: 'privacy' });
+        break;
+      case 'Terms of Service':
+        navigation.navigate('LegalText', { type: 'terms' });
         break;
       case 'Appearance':
         Alert.alert(
@@ -116,22 +117,28 @@ export default function Settings({ navigation }) {
     {
       title: 'Account',
       items: [
-        { icon: User, label: 'Edit Profile', description: 'Update your info' },
-        { icon: Bell, label: 'Notifications', description: 'Manage alerts' },
-        { icon: Lock, label: 'Privacy', description: 'Control your data' },
+        { icon: UserIcon, label: 'Edit Profile', description: 'Update your info' },
+        { icon: BellIcon, label: 'Notifications', description: 'Manage alerts' },
+        { icon: LockIcon, label: 'Privacy Policy', description: 'How we handle your data' },
       ],
     },
     {
       title: 'Preferences',
       items: [
-        { icon: Moon, label: 'Appearance', description: 'Dark mode settings' },
+        { icon: MoonIcon, label: 'Appearance', description: 'Dark mode settings' },
+      ],
+    },
+    {
+      title: 'Legal',
+      items: [
+        { icon: ChatTextIcon, label: 'Terms of Service', description: 'Usage terms' },
       ],
     },
     {
       title: 'Support',
       items: [
-        { icon: HelpCircle, label: 'Help Center', description: 'Get assistance' },
-        { icon: MessageSquare, label: 'Send Feedback', description: 'Share your thoughts' },
+        { icon: QuestionIcon, label: 'Help Center', description: 'Get assistance' },
+        { icon: ChatTextIcon, label: 'Send Feedback', description: 'Share your thoughts' },
       ],
     },
   ];
@@ -146,7 +153,7 @@ export default function Settings({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.headerSpacer} />
@@ -182,7 +189,7 @@ export default function Settings({ navigation }) {
                         {item.description}
                       </Text>
                     </View>
-                    <ChevronRight color="rgba(255,255,255,0.3)" size={16} />
+                    <CaretRightIcon color="rgba(255,255,255,0.3)" size={16} />
                   </TouchableOpacity>
                 );
               })}
@@ -199,7 +206,7 @@ export default function Settings({ navigation }) {
               style={styles.settingItem}
             >
               <View style={[styles.settingIcon, styles.dangerIcon]}>
-                <Trash2 color="#ff6b6b" size={16} />
+                <TrashIcon color="#ff6b6b" size={16} />
               </View>
               <View style={styles.settingInfo}>
                 <Text style={[styles.settingLabel, styles.dangerLabel]}>
@@ -209,14 +216,14 @@ export default function Settings({ navigation }) {
                   Permanently delete your account
                 </Text>
               </View>
-              <ChevronRight color="rgba(255,107,107,0.5)" size={16} />
+              <CaretRightIcon color="rgba(255,107,107,0.5)" size={16} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Logout Button */}
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <LogOut color="rgba(255,255,255,0.6)" size={16} />
+          <SignOutIcon color="rgba(255,255,255,0.6)" size={16} />
           <Text style={styles.logoutText}>Log out</Text>
         </TouchableOpacity>
 

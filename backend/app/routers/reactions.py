@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -6,11 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.models.notification import NotificationSettings
 from app.models.user import User
 from app.models.post import Post
 from app.models.reaction import Reaction
 from app.schemas.reaction import ToggleReactionRequest, ToggleReactionResponse, UserReaction
 from app.services.auth import EMOJI_TO_COLUMN
+from app.services.notifications import send_expo_push
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/reactions", tags=["reactions"])
 
@@ -44,6 +49,8 @@ async def toggle_reaction(
 
     user_reaction = None
 
+    is_new_reaction = False
+
     if existing:
         if existing.react_emoji == body.react_emoji:
             # Same emoji: remove reaction (toggle off)
@@ -67,9 +74,33 @@ async def toggle_reaction(
         db.add(reaction)
         setattr(post, column_name, getattr(post, column_name) + 1)
         user_reaction = body.react_emoji
+        is_new_reaction = True
 
     await db.commit()
     await db.refresh(post)
+
+    # Notify the post owner on new reactions (skip if reacting to own post)
+    if is_new_reaction and post.user_id != current_user.id:
+        try:
+            owner_result = await db.execute(
+                select(User).where(User.id == post.user_id)
+            )
+            owner = owner_result.scalar_one_or_none()
+            if owner and owner.push_notifications_enabled and owner.push_token:
+                # Check reactions notification setting
+                ns_result = await db.execute(
+                    select(NotificationSettings).where(NotificationSettings.user_id == owner.id)
+                )
+                ns = ns_result.scalar_one_or_none()
+                if ns is None or ns.reactions:
+                    await send_expo_push(
+                        owner.push_token,
+                        "🔥 New Reaction",
+                        f"{current_user.username} reacted to your post!",
+                        {"type": "reaction", "postId": str(post.id), "fromUsername": current_user.username},
+                    )
+        except Exception as e:
+            logger.warning("Failed to send reaction notification: %s", e)
 
     return ToggleReactionResponse(
         reaction_fire=post.reaction_fire,

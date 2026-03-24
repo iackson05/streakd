@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { X, FlipHorizontal } from 'lucide-react-native';
+import { XIcon, FlipHorizontalIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserGoals, incrementGoalStreak } from '../services/goals';
 import { createPost } from '../services/posts';
@@ -112,6 +112,13 @@ export default function CreatePostScreen({ navigation, route }) {
 
       if (streakError) {
         console.error('Error updating goal streak:', streakError);
+        // Post was created but streak update failed — notify user
+        Alert.alert(
+          'Post Created',
+          'Your post was uploaded but the streak could not be updated. Pull to refresh to try again.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Feed') }]
+        );
+        return;
       }
 
       Alert.alert('Success!', 'Post created', [
@@ -131,7 +138,7 @@ export default function CreatePostScreen({ navigation, route }) {
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setShowGoalSelector(false)}>
-            <X color="#fff" size={24} />
+            <XIcon color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Select Goal</Text>
           <View style={{ width: 24 }} />
@@ -185,7 +192,7 @@ export default function CreatePostScreen({ navigation, route }) {
           {/* Header */}
           <View style={styles.cameraHeader}>
             <TouchableOpacity onPress={retakePhoto}>
-              <X color="#fff" size={24} />
+              <XIcon color="#fff" size={24} />
             </TouchableOpacity>
             <Text style={styles.cameraGoalText}>{selectedGoal?.title}</Text>
             <TouchableOpacity onPress={() => setShowGoalSelector(true)}>
@@ -238,7 +245,7 @@ export default function CreatePostScreen({ navigation, route }) {
         {/* Header */}
         <View style={styles.cameraHeader}>
           <TouchableOpacity onPress={() => navigation.goBack()}>
-            <X color="#fff" size={24} />
+            <XIcon color="#fff" size={24} />
           </TouchableOpacity>
           <Text style={styles.cameraGoalText}>{selectedGoal?.title}</Text>
           <TouchableOpacity onPress={() => setShowGoalSelector(true)}>
@@ -261,7 +268,7 @@ export default function CreatePostScreen({ navigation, route }) {
             style={styles.flipButton}
             onPress={toggleCameraFacing}
           >
-            <FlipHorizontal color="#fff" size={32} />
+            <FlipHorizontalIcon color="#fff" size={32} />
           </TouchableOpacity>
 
           <TouchableOpacity

@@ -5,7 +5,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import { AlertTriangle } from 'lucide-react-native';
+import { WarningIcon } from 'phosphor-react-native';
 
 export default function UserNotFound() {
   return (
@@ -13,7 +13,7 @@ export default function UserNotFound() {
       <View style={styles.content}>
         <View style={styles.card}>
           <View style={styles.iconContainer}>
-            <AlertTriangle color="#EA580C" size={32} />
+            <WarningIcon color="#EA580C" size={32} />
           </View>
           
           <Text style={styles.title}>Access Restricted</Text>

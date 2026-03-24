@@ -9,7 +9,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.notification import NotificationSettings
 from app.schemas.auth import SignUpRequest, LoginRequest, RefreshRequest, TokenResponse
-from app.schemas.user import UserProfile
+from app.schemas.user import UserProfile, NameUpdate
 from app.services.auth import hash_password, verify_password, create_access_token, create_refresh_token, decode_token
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,6 +31,7 @@ async def signup(body: SignUpRequest, db: AsyncSession = Depends(get_db)):
         id=uuid.uuid4(),
         email=body.email,
         username=body.username,
+        name=body.name,
         password_hash=hash_password(body.password),
     )
     db.add(user)
@@ -85,6 +86,7 @@ async def me(current_user: User = Depends(get_current_user)):
     return UserProfile(
         id=current_user.id,
         username=current_user.username,
+        name=current_user.name,
         email=current_user.email,
         profile_picture_url=current_user.profile_picture_url,
         created_at=current_user.created_at,

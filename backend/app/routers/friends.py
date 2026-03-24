@@ -1,4 +1,5 @@
 import uuid
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, or_, and_
@@ -9,6 +10,9 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.friendship import Friendship
 from app.schemas.friendship import FriendRequestCreate, FriendshipResponse, FriendAccept, FriendReject
+from app.services.notifications import send_expo_push
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/friends", tags=["friends"])
 
@@ -18,23 +22,31 @@ async def get_friendships(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Single-query join to fetch friend info (avoids N+1)
+    from sqlalchemy.orm import aliased
+    FriendUser = aliased(User)
+
     result = await db.execute(
-        select(Friendship).where(
+        select(Friendship, FriendUser)
+        .join(
+            FriendUser,
+            or_(
+                and_(Friendship.user_id == current_user.id, FriendUser.id == Friendship.friend_id),
+                and_(Friendship.friend_id == current_user.id, FriendUser.id == Friendship.user_id),
+            ),
+        )
+        .where(
             or_(
                 Friendship.user_id == current_user.id,
                 Friendship.friend_id == current_user.id,
             )
-        ).order_by(Friendship.created_at.desc())
+        )
+        .order_by(Friendship.created_at.desc())
     )
-    friendships = result.scalars().all()
+    rows = result.all()
 
-    # Enrich with friend info
     response = []
-    for f in friendships:
-        other_id = f.friend_id if f.user_id == current_user.id else f.user_id
-        user_result = await db.execute(select(User).where(User.id == other_id))
-        other_user = user_result.scalar_one_or_none()
-
+    for f, other_user in rows:
         response.append(FriendshipResponse(
             id=f.id,
             user_id=f.user_id,
@@ -43,6 +55,7 @@ async def get_friendships(
             created_at=f.created_at,
             friend_username=other_user.username if other_user else None,
             friend_profile_picture_url=other_user.profile_picture_url if other_user else None,
+            friend_is_subscribed=other_user.is_subscribed if other_user else False,
         ))
 
     return response
@@ -108,6 +121,18 @@ async def send_friend_request(
     await db.commit()
     await db.refresh(friendship)
 
+    # Send push notification to the recipient
+    if target_user.push_notifications_enabled and target_user.push_token:
+        try:
+            await send_expo_push(
+                target_user.push_token,
+                "👋 New Friend Request",
+                f"{current_user.username} wants to be friends!",
+                {"type": "friend_request", "fromUserId": str(current_user.id), "fromUsername": current_user.username},
+            )
+        except Exception as e:
+            logger.warning("Failed to send friend request notification: %s", e)
+
     return FriendshipResponse(
         id=friendship.id,
         user_id=friendship.user_id,
@@ -116,6 +141,7 @@ async def send_friend_request(
         created_at=friendship.created_at,
         friend_username=target_user.username,
         friend_profile_picture_url=target_user.profile_picture_url,
+        friend_is_subscribed=target_user.is_subscribed,
     )
 
 
@@ -144,6 +170,18 @@ async def accept_friend_request(
     sender_result = await db.execute(select(User).where(User.id == friendship.user_id))
     sender = sender_result.scalar_one_or_none()
 
+    # Notify the original sender that their request was accepted
+    if sender and sender.push_notifications_enabled and sender.push_token:
+        try:
+            await send_expo_push(
+                sender.push_token,
+                "🎉 Friend Request Accepted",
+                f"{current_user.username} accepted your friend request!",
+                {"type": "friend_accepted", "fromUserId": str(current_user.id), "fromUsername": current_user.username},
+            )
+        except Exception as e:
+            logger.warning("Failed to send friend accepted notification: %s", e)
+
     return FriendshipResponse(
         id=friendship.id,
         user_id=friendship.user_id,
@@ -152,6 +190,7 @@ async def accept_friend_request(
         created_at=friendship.created_at,
         friend_username=sender.username if sender else None,
         friend_profile_picture_url=sender.profile_picture_url if sender else None,
+        friend_is_subscribed=sender.is_subscribed if sender else False,
     )
 
 

@@ -216,3 +216,60 @@ export const getNotificationSettings = async () => {
     return { streak_reminders: false, reactions: false, friend_requests: false, error };
   }
 };
+
+/**
+ * Block a user
+ */
+export const blockUser = async (blockedId) => {
+  try {
+    await apiPost('/blocks/', { blocked_id: blockedId });
+    return { error: null };
+  } catch (error) {
+    console.error('Error blocking user:', error);
+    return { error };
+  }
+};
+
+/**
+ * Unblock a user
+ */
+export const unblockUser = async (userId) => {
+  try {
+    await apiDelete(`/blocks/${userId}`);
+    return { error: null };
+  } catch (error) {
+    console.error('Error unblocking user:', error);
+    return { error };
+  }
+};
+
+/**
+ * Get list of blocked users
+ */
+export const getBlockedUsers = async () => {
+  try {
+    const data = await apiGet('/blocks/');
+    return { blockedUsers: data || [], error: null };
+  } catch (error) {
+    console.error('Error getting blocked users:', error);
+    return { blockedUsers: [], error };
+  }
+};
+
+/**
+ * Report a user or post
+ */
+export const reportContent = async ({ reportedUserId, postId, reason, details }) => {
+  try {
+    await apiPost('/blocks/report', {
+      reported_user_id: reportedUserId,
+      post_id: postId || null,
+      reason,
+      details: details || null,
+    });
+    return { error: null };
+  } catch (error) {
+    console.error('Error reporting content:', error);
+    return { error };
+  }
+};

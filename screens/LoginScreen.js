@@ -10,8 +10,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
-import { Flame } from 'lucide-react-native';
 import { signIn } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -65,12 +65,7 @@ export default function LoginScreen({ navigation }) {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoIconRing}>
-                <Flame color={BRAND} size={22} fill={BRAND} />
-              </View>
-              <Text style={styles.logoText}>streakd</Text>
-            </View>
+            <Image source={require('../assets/logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.subtitle}>Welcome back</Text>
           </View>
 
@@ -147,27 +142,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 52,
   },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  logo: {
+    width: 120,
+    height: 120,
     marginBottom: 16,
-  },
-  logoIconRing: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,107,53,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,107,53,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 34,
-    fontWeight: '700',
-    letterSpacing: -1,
   },
   subtitle: {
     color: 'rgba(255,255,255,0.5)',

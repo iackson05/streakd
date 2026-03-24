@@ -1,12 +1,12 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PostCreate(BaseModel):
     goal_id: uuid.UUID
-    caption: str | None = None
+    caption: str | None = Field(None, max_length=1000)
 
 
 class PostResponse(BaseModel):
@@ -26,5 +26,6 @@ class PostResponse(BaseModel):
     goal_title: str | None = None
     goal_privacy: str | None = None
     streak_count: int | None = None
+    post_user_is_subscribed: bool = False
 
     model_config = {"from_attributes": True}

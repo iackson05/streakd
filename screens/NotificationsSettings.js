@@ -11,7 +11,7 @@ import {
   ActivityIndicator,
   Linking,
 } from 'react-native';
-import { ArrowLeft, BellOff, Flame, Heart, Users } from 'lucide-react-native';
+import { ArrowLeftIcon, BellSlashIcon, FireIcon, HeartIcon, UsersIcon } from 'phosphor-react-native';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -24,7 +24,7 @@ const TOGGLE_ROWS = [
     key: 'streak_reminders',
     label: 'Streak Reminders',
     description: 'Reminders to post your streak updates on time',
-    Icon: Flame,
+    Icon: FireIcon,
     iconColor: '#FF6B35',
     iconBg: 'rgba(255,107,53,0.15)',
   },
@@ -32,7 +32,7 @@ const TOGGLE_ROWS = [
     key: 'reactions',
     label: 'Reactions',
     description: 'When friends react to your posts',
-    Icon: Heart,
+    Icon: HeartIcon,
     iconColor: '#FF4757',
     iconBg: 'rgba(255,71,87,0.15)',
   },
@@ -40,7 +40,7 @@ const TOGGLE_ROWS = [
     key: 'friend_requests',
     label: 'Friend Requests',
     description: 'When someone sends you a friend request',
-    Icon: Users,
+    Icon: UsersIcon,
     iconColor: '#5B8DEF',
     iconBg: 'rgba(91,141,239,0.15)',
   },
@@ -130,7 +130,7 @@ export default function NotificationsSettings({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <View style={styles.headerSpacer} />
@@ -144,7 +144,7 @@ export default function NotificationsSettings({ navigation }) {
             onPress={openSystemSettings}
           >
             <View style={styles.warningIcon}>
-              <BellOff color="#ff6b6b" size={20} />
+              <BellSlashIcon color="#ff6b6b" size={20} />
             </View>
             <View style={styles.warningContent}>
               <Text style={styles.warningTitle}>Notifications Disabled</Text>

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 60" width="180" height="60">
+  <rect width="180" height="60" rx="10" fill="#000" stroke="#a6a6a6" stroke-width="1"/>
+  <text x="90" y="22" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="10" fill="#fff" text-anchor="middle" font-weight="400">Download on the</text>
+  <text x="90" y="40" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="18" fill="#fff" text-anchor="middle" font-weight="600">App Store</text>
+</svg>

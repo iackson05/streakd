@@ -17,21 +17,20 @@ import {
   Animated,
 } from 'react-native';
 import {
-  ArrowLeft,
-  ChevronRight,
-  Bell,
-  Camera,
-  Search,
-  UserPlus,
-  Check,
-  Flame,
-} from 'lucide-react-native';
+  ArrowLeftIcon,
+  CaretRightIcon,
+  BellIcon,
+  CameraIcon,
+  MagnifyingGlassIcon,
+  UserPlusIcon,
+  XIcon,
+} from 'phosphor-react-native';
 import Slider from '@react-native-community/slider';
 import * as ImagePicker from 'expo-image-picker';
 import * as Notifications from 'expo-notifications';
 import { useAuth } from '../contexts/AuthContext';
 import { createGoal } from '../services/goals';
-import { searchUsers, sendFriendRequest, uploadProfilePicture } from '../services/users';
+import { searchUsers, sendFriendRequest, removeFriend, uploadProfilePicture, updateNotificationSettings } from '../services/users';
 
 const BRAND = '#FF6B35';
 const BRAND_GLOW = 'rgba(255,107,53,0.15)';
@@ -138,12 +137,26 @@ export default function Onboarding({ navigation }) {
     }
   };
 
-  const handleAddFriend = async (friendId) => {
-    try {
-      await sendFriendRequest(user.id, friendId);
-      setAddedFriends(prev => new Set([...prev, friendId]));
-    } catch {
-      Alert.alert('Error', 'Failed to send friend request');
+  const handleToggleFriend = async (friendId) => {
+    if (addedFriends.has(friendId)) {
+      // Cancel the pending request
+      try {
+        await removeFriend(user.id, friendId);
+        setAddedFriends(prev => {
+          const next = new Set(prev);
+          next.delete(friendId);
+          return next;
+        });
+      } catch {
+        Alert.alert('Error', 'Failed to remove friend request');
+      }
+    } else {
+      try {
+        await sendFriendRequest(user.id, friendId);
+        setAddedFriends(prev => new Set([...prev, friendId]));
+      } catch {
+        Alert.alert('Error', 'Failed to send friend request');
+      }
     }
   };
 
@@ -186,6 +199,15 @@ export default function Onboarding({ navigation }) {
     } catch {
       // Proceed regardless
     }
+    try {
+      await updateNotificationSettings({
+        streak_reminders: true,
+        reactions: true,
+        friend_requests: true,
+      });
+    } catch {
+      // Non-blocking — user can adjust in settings
+    }
     finishOnboarding();
   };
 
@@ -193,16 +215,14 @@ export default function Onboarding({ navigation }) {
 
   const renderWelcome = () => (
     <View style={styles.stepContainer}>
-      <View style={styles.welcomeIconRing}>
-        <Text style={styles.welcomeEmoji}>🔥</Text>
-      </View>
-      <Text style={styles.welcomeTitle}>Welcome to streakd</Text>
+      <Image source={require('../assets/logo.png')} style={styles.welcomeLogo} resizeMode="contain" />
+      <Text style={styles.welcomeTitle}>Welcome</Text>
       <Text style={styles.welcomeSubtitle}>
         Build habits that stick.{'\n'}Stay accountable. Celebrate your wins.
       </Text>
       <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(1)}>
         <Text style={styles.primaryButtonText}>Get started</Text>
-        <ChevronRight color="#fff" size={18} />
+        <CaretRightIcon color="#fff" size={18} />
       </TouchableOpacity>
       <TouchableOpacity onPress={finishOnboarding}>
         <Text style={styles.skipText}>Skip setup</Text>
@@ -221,7 +241,6 @@ export default function Onboarding({ navigation }) {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.stepEmoji}>🎯</Text>
         <Text style={styles.stepTitle}>Set your first goal</Text>
         <Text style={styles.stepSubtitle}>What habit do you want to build?</Text>
 
@@ -309,7 +328,7 @@ export default function Onboarding({ navigation }) {
           ) : (
             <>
               <Text style={styles.primaryButtonText}>Create goal</Text>
-              <ChevronRight color="#fff" size={18} />
+              <CaretRightIcon color="#fff" size={18} />
             </>
           )}
         </TouchableOpacity>
@@ -326,10 +345,10 @@ export default function Onboarding({ navigation }) {
         <Text style={styles.stepSubtitle}>Accountability is better together</Text>
 
         <View style={styles.searchRow}>
-          <Search color="rgba(255,255,255,0.4)" size={16} />
+          <MagnifyingGlassIcon color="rgba(255,255,255,0.4)" size={16} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by username…"
+            placeholder="Search by name or username…"
             placeholderTextColor="rgba(255,255,255,0.3)"
             value={searchQuery}
             onChangeText={handleSearch}
@@ -344,29 +363,34 @@ export default function Onboarding({ navigation }) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {searchResults.map(u => (
-            <View key={u.id} style={styles.userRow}>
-              <Image
-                source={{
-                  uri: u.profile_picture_url ||
-                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`,
-                }}
-                style={styles.userAvatar}
-              />
-              <Text style={styles.userUsername}>@{u.username}</Text>
-              <TouchableOpacity
-                style={[styles.addButton, addedFriends.has(u.id) && styles.addButtonAdded]}
-                onPress={() => handleAddFriend(u.id)}
-                disabled={addedFriends.has(u.id)}
-              >
-                {addedFriends.has(u.id) ? (
-                  <Check color={BRAND} size={14} />
-                ) : (
-                  <UserPlus color="#fff" size={14} />
-                )}
-              </TouchableOpacity>
-            </View>
-          ))}
+          {searchResults.map(u => {
+            const added = addedFriends.has(u.id);
+            return (
+              <View key={u.id} style={styles.userRow}>
+                <Image
+                  source={{
+                    uri: u.profile_picture_url ||
+                      `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.username}`,
+                  }}
+                  style={styles.userAvatar}
+                />
+                <View style={styles.userInfo}>
+                  {u.name ? <Text style={styles.userName}>{u.name}</Text> : null}
+                  <Text style={[styles.userUsername, u.name && styles.userUsernameSmall]}>@{u.username}</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.addButton, added && styles.addButtonAdded]}
+                  onPress={() => handleToggleFriend(u.id)}
+                >
+                  {added ? (
+                    <XIcon color={BRAND} size={14} />
+                  ) : (
+                    <UserPlusIcon color="#fff" size={14} />
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
           {searchQuery.length >= 2 && searchResults.length === 0 && !searching && (
             <Text style={styles.noResults}>No users found</Text>
           )}
@@ -380,7 +404,7 @@ export default function Onboarding({ navigation }) {
           <Text style={[styles.primaryButtonText, !hasFriends && styles.primaryButtonTextInactive]}>
             {hasFriends ? `Continue — ${addedFriends.size} added` : 'Add a friend to continue'}
           </Text>
-          {hasFriends && <ChevronRight color="#fff" size={18} />}
+          {hasFriends && <CaretRightIcon color="#fff" size={18} />}
         </TouchableOpacity>
       </View>
     );
@@ -390,8 +414,7 @@ export default function Onboarding({ navigation }) {
     const hasPhoto = !!photoUri;
     return (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepEmoji}>📸</Text>
-        <Text style={styles.stepTitle}>Add your photo</Text>
+        <Text style={styles.stepTitle}>Add a profile picture</Text>
         <Text style={styles.stepSubtitle}>Put a face to your streaks</Text>
 
         <TouchableOpacity style={styles.avatarPicker} onPress={handlePickPhoto}>
@@ -399,12 +422,12 @@ export default function Onboarding({ navigation }) {
             <Image source={{ uri: photoUri }} style={styles.avatarPreview} />
           ) : (
             <View style={styles.avatarPlaceholder}>
-              <Camera color="rgba(255,255,255,0.4)" size={36} />
+              <CameraIcon color="rgba(255,255,255,0.4)" size={36} />
               <Text style={styles.avatarPlaceholderText}>Tap to choose photo</Text>
             </View>
           )}
           <View style={[styles.avatarEditBadge, hasPhoto && styles.avatarEditBadgeActive]}>
-            <Camera color="#fff" size={12} />
+            <CameraIcon color="#fff" size={12} />
           </View>
         </TouchableOpacity>
 
@@ -419,9 +442,9 @@ export default function Onboarding({ navigation }) {
           ) : (
             <>
               <Text style={[styles.primaryButtonText, !hasPhoto && styles.primaryButtonTextInactive]}>
-                {hasPhoto ? 'Set photo & continue' : 'Choose a photo to continue'}
+                {hasPhoto ? 'Set profile picture' : 'Set profile picture'}
               </Text>
-              {hasPhoto && <ChevronRight color="#fff" size={18} />}
+              {hasPhoto && <CaretRightIcon color="#fff" size={18} />}
             </>
           )}
         </TouchableOpacity>
@@ -432,7 +455,7 @@ export default function Onboarding({ navigation }) {
   const renderNotificationsStep = () => (
     <View style={styles.stepContainer}>
       <View style={styles.notifIconRing}>
-        <Bell color={BRAND} size={36} />
+        <BellIcon color={BRAND} size={36} />
       </View>
       <Text style={styles.stepTitle}>Stay on track</Text>
       <Text style={styles.stepSubtitle}>
@@ -453,7 +476,7 @@ export default function Onboarding({ navigation }) {
       </View>
 
       <TouchableOpacity style={styles.primaryButton} onPress={handleEnableNotifications}>
-        <Bell color="#fff" size={16} />
+        <BellIcon color="#fff" size={16} />
         <Text style={styles.primaryButtonText}>Enable notifications</Text>
       </TouchableOpacity>
 
@@ -479,7 +502,7 @@ export default function Onboarding({ navigation }) {
       {step > 0 && (
         <View style={styles.header}>
           <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
-            <ArrowLeft color="rgba(255,255,255,0.6)" size={20} />
+            <ArrowLeftIcon color="rgba(255,255,255,0.6)" size={20} />
           </TouchableOpacity>
 
           <View style={styles.progressDots}>
@@ -505,10 +528,8 @@ export default function Onboarding({ navigation }) {
       {/* Welcome splash overlay — fades in/out when onboarding finishes */}
       {showWelcome && (
         <Animated.View style={[styles.welcomeOverlay, { opacity: welcomeOpacity }]}>
-          <View style={styles.welcomeSplashIcon}>
-            <Flame color={BRAND} size={48} fill={BRAND} />
-          </View>
-          <Text style={styles.welcomeSplashTitle}>Welcome to streakd</Text>
+          <Image source={require('../assets/logo.png')} style={styles.splashLogo} resizeMode="contain" />
+          <Text style={styles.welcomeSplashTitle}>Welcome</Text>
           <Text style={styles.welcomeSplashSub}>
             @{profile?.username || user?.username}, let's build some habits 🔥
           </Text>
@@ -560,7 +581,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   skipHeaderText: {
-    color: 'rgba(255,255,255,0.4)',
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 14,
   },
   content: {
@@ -576,19 +597,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 20,
   },
-  welcomeIconRing: {
+  welcomeLogo: {
     width: 120,
     height: 120,
-    borderRadius: 60,
-    backgroundColor: BRAND_GLOW,
-    borderWidth: 1,
-    borderColor: BRAND_BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 8,
-  },
-  welcomeEmoji: {
-    fontSize: 56,
   },
   welcomeTitle: {
     color: '#fff',
@@ -750,7 +762,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.35)',
   },
   skipText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,1)',
     fontSize: 14,
     textAlign: 'center',
     paddingVertical: 4,
@@ -792,11 +804,24 @@ const styles = StyleSheet.create({
     borderRadius: 19,
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  userUsername: {
+  userInfo: {
     flex: 1,
+    gap: 2,
+  },
+  userName: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  userUsername: {
     color: 'rgba(255,255,255,0.85)',
     fontSize: 14,
     fontWeight: '500',
+  },
+  userUsernameSmall: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 12,
+    fontWeight: '400',
   },
   addButton: {
     width: 36,
@@ -914,15 +939,9 @@ const styles = StyleSheet.create({
     gap: 16,
     zIndex: 100,
   },
-  welcomeSplashIcon: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: BRAND_GLOW,
-    borderWidth: 1,
-    borderColor: BRAND_BORDER,
-    alignItems: 'center',
-    justifyContent: 'center',
+  splashLogo: {
+    width: 120,
+    height: 120,
     marginBottom: 8,
   },
   welcomeSplashTitle: {

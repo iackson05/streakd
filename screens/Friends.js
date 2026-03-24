@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { ArrowLeft, Search, UserPlus, UserMinus, Clock, Check, X } from 'lucide-react-native';
+import { ArrowLeftIcon, MagnifyingGlassIcon, UserPlusIcon, UserMinusIcon, ClockIcon, CheckIcon, XIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import {
@@ -131,14 +131,14 @@ export default function Friends({ navigation }) {
           onPress={() => navigation.goBack()}
           style={styles.backButton}
         >
-          <ArrowLeft color="rgba(255,255,255,0.7)" size={20} />
+          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Friends</Text>
         <TouchableOpacity 
           onPress={() => navigation.navigate('AddFriends')}
           style={styles.addButton}
         >
-          <UserPlus color="rgba(255,255,255,0.7)" size={20} />
+          <UserPlusIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
       </View>
 
@@ -170,7 +170,7 @@ export default function Friends({ navigation }) {
           <>
             {/* Search */}
             <View style={styles.searchContainer}>
-              <Search 
+              <MagnifyingGlassIcon
                 color="rgba(255,255,255,0.4)" 
                 size={16} 
                 style={styles.searchIcon}
@@ -189,7 +189,7 @@ export default function Friends({ navigation }) {
             {filteredFriends.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <UserPlus color="rgba(255,255,255,0.3)" size={20} />
+                  <UserPlusIcon color="rgba(255,255,255,0.3)" size={20} />
                 </View>
                 <Text style={styles.emptyText}>
                   {searchQuery ? 'No friends found' : 'No friends yet'}
@@ -205,20 +205,22 @@ export default function Friends({ navigation }) {
               filteredFriends.map((friend) => (
                 <View key={friend.id} style={styles.userCard}>
                   <Image
-                    source={{ 
-                      uri: friend.profile_picture_url || 
+                    source={{
+                      uri: friend.profile_picture_url ||
                            `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.username}`
                     }}
-                    style={styles.userAvatar}
+                    style={[styles.userAvatar, friend.is_subscribed && styles.userAvatarSubscribed]}
                   />
                   <View style={styles.userInfo}>
-                    <Text style={styles.userName}>{friend.username}</Text>
+                    <Text style={[styles.userName, friend.is_subscribed && styles.userNameSubscribed]}>
+                      {friend.username}
+                    </Text>
                   </View>
                   <TouchableOpacity
                     onPress={() => handleRemoveFriend(friend.id)}
                     style={styles.removeButton}
                   >
-                    <UserMinus color="rgba(255,255,255,0.7)" size={16} />
+                    <UserMinusIcon color="rgba(255,255,255,0.7)" size={16} />
                   </TouchableOpacity>
                 </View>
               ))
@@ -230,7 +232,7 @@ export default function Friends({ navigation }) {
             {pendingRequests.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIcon}>
-                  <Clock color="rgba(255,255,255,0.3)" size={20} />
+                  <ClockIcon color="rgba(255,255,255,0.3)" size={20} />
                 </View>
                 <Text style={styles.emptyText}>No pending requests</Text>
               </View>
@@ -246,20 +248,19 @@ export default function Friends({ navigation }) {
                   />
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{request.username}</Text>
-                    <Text style={styles.userEmail}>{request.email}</Text>
                   </View>
                   <View style={styles.requestButtons}>
                     <TouchableOpacity
                       onPress={() => handleAcceptRequest(request.senderId, request)}
                       style={styles.acceptButton}
                     >
-                      <Check color="#000" size={16} />
+                      <CheckIcon color="#000" size={16} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() => handleRejectRequest(request.senderId)}
                       style={styles.rejectButton}
                     >
-                      <X color="rgba(255,255,255,0.7)" size={16} />
+                      <XIcon color="rgba(255,255,255,0.7)" size={16} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -387,6 +388,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
+  userAvatarSubscribed: {
+    borderColor: '#FF6B35',
+    borderWidth: 2,
+  },
   userInfo: {
     flex: 1,
   },
@@ -396,9 +401,8 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginBottom: 2,
   },
-  userEmail: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
+  userNameSubscribed: {
+    color: '#FF6B35',
   },
   removeButton: {
     width: 40,

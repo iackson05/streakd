@@ -10,7 +10,8 @@ web-build/
 expo-env.d.ts
 
 #keys
-*.env
+backend/.env
+workers/**/.dev.vars
 
 # Native
 .kotlin/
