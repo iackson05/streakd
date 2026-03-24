@@ -8,12 +8,18 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { XIcon, FlipHorizontalIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserGoals, incrementGoalStreak } from '../services/goals';
 import { createPost } from '../services/posts';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CAMERA_PADDING = 16;
+const CAMERA_WIDTH = SCREEN_WIDTH - CAMERA_PADDING * 2;
+const CAMERA_HEIGHT = CAMERA_WIDTH * (4 / 3); // 4:3 aspect ratio to match sensor
 
 export default function CreatePostScreen({ navigation, route }) {
   const { user } = useAuth();
@@ -85,6 +91,7 @@ export default function CreatePostScreen({ navigation, route }) {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.8,
         base64: false,
+        mirror: facing === 'front',
       });
       setPhoto(photo);
     } catch (error) {
@@ -194,7 +201,6 @@ export default function CreatePostScreen({ navigation, route }) {
             <TouchableOpacity onPress={retakePhoto}>
               <XIcon color="#fff" size={24} />
             </TouchableOpacity>
-            <Text style={styles.cameraGoalText}>{selectedGoal?.title}</Text>
             <TouchableOpacity onPress={() => setShowGoalSelector(true)}>
               <Text style={styles.changeText}>Change Goal</Text>
             </TouchableOpacity>
@@ -247,7 +253,6 @@ export default function CreatePostScreen({ navigation, route }) {
           <TouchableOpacity onPress={() => navigation.goBack()}>
             <XIcon color="#fff" size={24} />
           </TouchableOpacity>
-          <Text style={styles.cameraGoalText}>{selectedGoal?.title}</Text>
           <TouchableOpacity onPress={() => setShowGoalSelector(true)}>
             <Text style={styles.changeText}>Change Goal</Text>
           </TouchableOpacity>
@@ -350,24 +355,30 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   cameraWrapper: {
-    flex: 1,
-    margin: 16,
+    width: CAMERA_WIDTH,
+    height: CAMERA_HEIGHT,
+    marginHorizontal: CAMERA_PADDING,
+    marginVertical: CAMERA_PADDING,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
+    alignSelf: 'center',
   },
   camera: {
     flex: 1,
   },
   previewWrapper: {
-    flex: 1,
-    margin: 16,
+    width: CAMERA_WIDTH,
+    height: CAMERA_HEIGHT,
+    marginHorizontal: CAMERA_PADDING,
+    marginVertical: CAMERA_PADDING,
+    paddingTop: 12,
     borderRadius: 12,
     overflow: 'hidden',
     backgroundColor: '#000',
+    alignSelf: 'center',
   },
   previewImage: {
-    flex: 1,
     width: '100%',
     height: '100%',
   },

@@ -38,4 +38,4 @@ class NotificationSettingsSchema(BaseModel):
 
 
 class PushTokenUpdate(BaseModel):
-    push_token: str
+    push_token: str = Field(..., min_length=1, max_length=500)

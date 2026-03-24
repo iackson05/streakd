@@ -1,11 +1,12 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel
 
 
 class ToggleReactionRequest(BaseModel):
     post_id: uuid.UUID
-    react_emoji: str
+    react_emoji: Literal['🔥', '👊', '🎉', '❤️']
 
 
 class ToggleReactionResponse(BaseModel):

@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, or_, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.models.user import User
 from app.models.block import Block
 from app.models.report import Report
 from app.models.friendship import Friendship
+from app.limiter import limiter
 from app.schemas.block import BlockCreate, BlockResponse, ReportCreate, ReportResponse
 
 router = APIRouter(prefix="/blocks", tags=["blocks"])
@@ -95,7 +96,9 @@ async def list_blocked_users(
 
 
 @router.post("/report", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("10/hour")
 async def report_user(
+    request: Request,
     body: ReportCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

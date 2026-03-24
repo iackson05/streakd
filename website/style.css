@@ -36,6 +36,7 @@ body {
   color: var(--text);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 /* ---- NAV ---- */
@@ -177,7 +178,8 @@ body {
   justify-content: center;
   color: var(--text-dim);
   font-size: 14px;
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
   overflow: hidden;
 }
 

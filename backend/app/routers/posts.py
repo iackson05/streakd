@@ -2,7 +2,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,9 +16,13 @@ from app.models.post import Post
 from app.models.friendship import Friendship
 from app.models.block import Block
 from app.schemas.post import PostResponse
+from app.limiter import limiter
 from app.services.storage import upload_file, delete_file
 
 router = APIRouter(prefix="/posts", tags=["posts"])
+
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 def _post_to_response(post: Post, user: User, goal: Goal) -> PostResponse:
@@ -162,7 +166,9 @@ async def get_goal_posts(
 
 
 @router.post("/", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/hour")
 async def create_post(
+    request: Request,
     goal_id: uuid.UUID = Form(...),
     caption: str | None = Form(None),
     image: UploadFile | None = File(None),
@@ -179,7 +185,16 @@ async def create_post(
 
     image_url = None
     if image:
+        # Validate file type
+        if image.content_type not in ALLOWED_IMAGE_TYPES:
+            raise HTTPException(status_code=400, detail="Invalid image type. Allowed: JPEG, PNG, WebP, HEIC")
+
         contents = await image.read()
+
+        # Validate file size
+        if len(contents) > MAX_IMAGE_SIZE:
+            raise HTTPException(status_code=413, detail="Image too large. Maximum size is 10 MB")
+
         image_url = await upload_file(contents, image.content_type or "image/jpeg", folder="posts")
 
     post = Post(

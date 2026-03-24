@@ -2,7 +2,7 @@ import io
 import logging
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, status
 from PIL import Image
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,6 +15,7 @@ from app.models.friendship import Friendship
 from app.models.notification import NotificationSettings
 from app.models.block import Block
 from app.schemas.user import UserProfile, UsernameUpdate, NameUpdate, NotificationSettingsSchema, PushTokenUpdate, SubscriptionStatusUpdate
+from app.limiter import limiter
 from app.services.storage import upload_file, delete_file
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,8 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 AVATAR_MAX_SIZE = (256, 256)
 AVATAR_JPEG_QUALITY = 85
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+MAX_PROFILE_PIC_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
 def _compress_profile_picture(data: bytes) -> bytes:
@@ -167,16 +170,27 @@ async def check_username(
 
 
 @router.put("/profile-picture")
+@limiter.limit("10/hour")
 async def update_profile_picture(
+    request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Validate file type
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Invalid image type. Allowed: JPEG, PNG, WebP, HEIC")
+
+    contents = await file.read()
+
+    # Validate file size
+    if len(contents) > MAX_PROFILE_PIC_SIZE:
+        raise HTTPException(status_code=413, detail="Image too large. Maximum size is 5 MB")
+
     # Delete old picture from R2
     if current_user.profile_picture_url:
         await delete_file(current_user.profile_picture_url)
 
-    contents = await file.read()
     contents = _compress_profile_picture(contents)
     url = await upload_file(contents, "image/jpeg", folder="profile-pictures")
     current_user.profile_picture_url = url

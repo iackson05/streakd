@@ -1,7 +1,7 @@
 import uuid
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.friendship import Friendship
 from app.schemas.friendship import FriendRequestCreate, FriendshipResponse, FriendAccept, FriendReject
+from app.limiter import limiter
 from app.services.notifications import send_expo_push
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,9 @@ async def get_accepted_friend_ids(
 
 
 @router.post("/request", response_model=FriendshipResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/hour")
 async def send_friend_request(
+    request: Request,
     body: FriendRequestCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),

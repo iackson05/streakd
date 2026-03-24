@@ -1,11 +1,12 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import get_current_user
+from app.limiter import limiter
 from app.models.user import User
 from app.models.notification import NotificationSettings
 from app.schemas.auth import SignUpRequest, LoginRequest, RefreshRequest, TokenResponse
@@ -16,7 +17,8 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def signup(body: SignUpRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("5/hour")
+async def signup(request: Request, body: SignUpRequest, db: AsyncSession = Depends(get_db)):
     # Check existing email
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
@@ -50,7 +52,8 @@ async def signup(body: SignUpRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("10/15minutes")
+async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
@@ -64,7 +67,8 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest, db: AsyncSession = Depends(get_db)):
+@limiter.limit("30/hour")
+async def refresh(request: Request, body: RefreshRequest, db: AsyncSession = Depends(get_db)):
     payload = decode_token(body.refresh_token)
     if payload is None or payload.get("type") != "refresh":
         raise HTTPException(status_code=401, detail="Invalid refresh token")
