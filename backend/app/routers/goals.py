@@ -54,9 +54,9 @@ async def create_goal(
 ):
     # Enforce active goals limit for free users (use COUNT query + FOR UPDATE to prevent race conditions)
     if not current_user.is_subscribed:
-        count_result = await db.execute(
-            select(func.count())
-            .select_from(Goal)
+        # Lock the user's active goal rows to prevent race conditions
+        active_goals_result = await db.execute(
+            select(Goal.id)
             .where(
                 Goal.user_id == current_user.id,
                 Goal.completed == False,
@@ -64,7 +64,7 @@ async def create_goal(
             )
             .with_for_update()
         )
-        active_count = count_result.scalar()
+        active_count = len(active_goals_result.all())
         if active_count >= MAX_ACTIVE_GOALS_FREE:
             raise HTTPException(
                 status_code=403,
