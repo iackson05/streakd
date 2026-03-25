@@ -254,6 +254,7 @@ async def update_push_token(
     current_user: User = Depends(get_current_user),
 ):
     current_user.push_token = body.push_token
+    current_user.push_notifications_enabled = True
     await db.commit()
     return {"push_token": current_user.push_token}
 

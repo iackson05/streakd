@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -39,14 +39,11 @@ export default function Friends({ navigation }) {
 
   const { friends, pendingRequests, loading} = friendsData;
 
-  useEffect(() => {
-    if (user) fetchFriendsData();
-  }, [user]);
-
+  // Refresh silently on every screen focus (SWR pattern: show cache instantly, refetch in background)
   useFocusEffect(
     useCallback(() => {
-        if (user) fetchFriendsData(); 
-    }, [user])
+      if (user) fetchFriendsData();
+    }, [user, fetchFriendsData])
   );
 
   const handleRemoveFriend = async (friendId) => {

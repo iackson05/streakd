@@ -12,6 +12,11 @@ export const DataProvider = ({ children }) => {
   const friendsLastFetch = useRef(null);
   const feedLastFetch = useRef(null);
 
+  // In-flight guards to prevent duplicate concurrent requests
+  const isFetchingProfile = useRef(false);
+  const isFetchingFriends = useRef(false);
+  const isFetchingFeed = useRef(false);
+
   // Cached data
   const [profileData, setProfileData] = useState({
     goals: [],
@@ -34,23 +39,19 @@ export const DataProvider = ({ children }) => {
     loading: false,
   });
 
-  // Cache duration: 5 minutes
-  const CACHE_DURATION = 5 * 60 * 1000;
-
-  const isStale = (lastFetch) => {
-    if (!lastFetch) return true;
-    return Date.now() - lastFetch > CACHE_DURATION;
-  };
+  // Short debounce: prevents hammering the API when navigating quickly between screens.
+  // After this window, the fetch runs silently in the background (SWR pattern).
+  const DEBOUNCE_MS = 30 * 1000;
 
   // Profile data fetcher
   const fetchProfileData = useCallback(async (force = false) => {
     if (!user) return;
-    if (!force && !isStale(profileLastFetch.current)) {
-      console.log('Using cached profile data');
+    if (isFetchingProfile.current) return;
+    if (!force && profileLastFetch.current && Date.now() - profileLastFetch.current < DEBOUNCE_MS) {
       return;
     }
 
-    console.log('Fetching fresh profile data');
+    isFetchingProfile.current = true;
     setProfileData(prev => ({ ...prev, loading: true }));
 
     try {
@@ -83,18 +84,20 @@ export const DataProvider = ({ children }) => {
       console.error('Error fetching profile data:', error);
       setProfileData(prev => ({ ...prev, loading: false }));
       throw error;
+    } finally {
+      isFetchingProfile.current = false;
     }
   }, [user]);
 
   // Friends data fetcher
   const fetchFriendsData = useCallback(async (force = false) => {
     if (!user) return;
-    if (!force && !isStale(friendsLastFetch.current)) {
-      console.log('Using cached friends data');
+    if (isFetchingFriends.current) return;
+    if (!force && friendsLastFetch.current && Date.now() - friendsLastFetch.current < DEBOUNCE_MS) {
       return;
     }
 
-    console.log('Fetching fresh friends data');
+    isFetchingFriends.current = true;
     setFriendsData(prev => ({ ...prev, loading: true }));
 
     try {
@@ -140,18 +143,20 @@ export const DataProvider = ({ children }) => {
       console.error('Error fetching friends data:', error);
       setFriendsData(prev => ({ ...prev, loading: false }));
       throw error;
+    } finally {
+      isFetchingFriends.current = false;
     }
   }, [user]);
 
   // Feed data fetcher
   const fetchFeedData = useCallback(async (force = false) => {
     if (!user) return;
-    if (!force && !isStale(feedLastFetch.current)) {
-      console.log('Using cached feed data');
+    if (isFetchingFeed.current) return;
+    if (!force && feedLastFetch.current && Date.now() - feedLastFetch.current < DEBOUNCE_MS) {
       return;
     }
 
-    console.log('Fetching fresh feed data');
+    isFetchingFeed.current = true;
     setFeedData(prev => ({ ...prev, loading: true }));
 
     try {
@@ -173,6 +178,8 @@ export const DataProvider = ({ children }) => {
       console.error('Error fetching feed data:', error);
       setFeedData(prev => ({ ...prev, loading: false }));
       throw error;
+    } finally {
+      isFetchingFeed.current = false;
     }
   }, [user]);
 

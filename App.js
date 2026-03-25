@@ -1,4 +1,5 @@
 import { NavigationContainer } from '@react-navigation/native';
+import { useData } from './contexts/DataContext';
 import { createStackNavigator, CardStyleInterpolators  } from '@react-navigation/stack';
 import { useEffect, useRef } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -8,7 +9,7 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { apiPut } from './services/api';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, AppState } from 'react-native';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -44,9 +45,26 @@ Notifications.setNotificationHandler({
 // Inner component that has access to auth context
 function AppContent() {
   const { user, loading, isNewUser } = useAuth();
+  const { fetchProfileData, fetchFriendsData, fetchFeedData } = useData();
   const notificationListener = useRef();
   const responseListener = useRef();
   const lastRegisteredUserId = useRef(null);
+  const appState = useRef(AppState.currentState);
+
+  // Refresh all data when app comes back to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        if (user) {
+          fetchProfileData();
+          fetchFriendsData();
+          fetchFeedData();
+        }
+      }
+      appState.current = nextAppState;
+    });
+    return () => subscription.remove();
+  }, [user, fetchProfileData, fetchFriendsData, fetchFeedData]);
 
   useEffect(() => {
     if (user && user.id !== lastRegisteredUserId.current) {

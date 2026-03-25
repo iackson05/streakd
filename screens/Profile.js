@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -131,12 +131,12 @@ export default function Profile({ navigation }) {
   const [creatingGoal, setCreatingGoal] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Fetch data on first mount
-  useEffect(() => {
-    if (user) {
-      fetchProfileData();
-    }
-  }, [user]);
+  // Refresh silently on every screen focus (SWR pattern: show cache instantly, refetch in background)
+  useFocusEffect(
+    useCallback(() => {
+      if (user) fetchProfileData();
+    }, [user, fetchProfileData])
+  );
 
 
   // Manual refresh (pull to refresh)
