@@ -170,7 +170,7 @@ body {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
-  padding: 0 calc(50% - 120px);
+  padding: 0 calc(50% - 150px);
   scrollbar-width: none;
 }
 
@@ -179,8 +179,8 @@ body {
 }
 
 .screenshot-placeholder {
-  width: 240px;
-  height: 480px;
+  width: 300px;
+  height: 650px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
