@@ -102,10 +102,16 @@
       </div>
     </div>
     <script>
-      window.addEventListener('load', function() {
+      (function() {
+        var track = document.getElementById('carousel-track');
         var middle = document.getElementById('screenshot-2');
-        middle.scrollIntoView({ inline: 'center', block: 'nearest' });
-      });
+        // Use requestAnimationFrame to ensure layout is calculated but before paint
+        requestAnimationFrame(function() {
+          var middleCenter = middle.offsetLeft + middle.offsetWidth / 2;
+          var trackVisible = track.clientWidth / 2;
+          track.scrollLeft = middleCenter - trackVisible;
+        });
+      })();
     </script>
   </section>
 
