@@ -147,6 +147,71 @@ body {
   flex-wrap: wrap;
 }
 
+/* ---- BETA BOX ---- */
+
+.beta-box {
+  background: #fff;
+  color: #111;
+  border-radius: var(--radius-lg);
+  padding: 16px 16px;
+  max-width: 320px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.4);
+}
+
+.beta-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #111;
+}
+
+.beta-sub {
+  font-size: 0.95rem;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+.beta-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.beta-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 10px 14px;
+  border: 1.5px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+  color: #111;
+  background: #f9f9f9;
+}
+
+.beta-input:focus {
+  border-color: var(--accent);
+}
+
+.beta-submit {
+  padding: 10px 20px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.beta-submit:hover {
+  background: #e5551f;
+}
+
 .store-badge img {
   height: 54px;
   transition: transform 0.2s;
