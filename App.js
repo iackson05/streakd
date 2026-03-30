@@ -29,6 +29,7 @@ import Onboarding from './screens/Onboarding';
 import Paywall from './screens/Paywall';
 import LegalText from './screens/LegalText';
 import UserProfile from './screens/UserProfile';
+import BlockedUsers from './screens/BlockedUsers';
 
 
 const Stack = createStackNavigator();
@@ -179,6 +180,7 @@ function AppContent() {
             <Stack.Screen name="Paywall" component={Paywall} />
             <Stack.Screen name="LegalText" component={LegalText} />
             <Stack.Screen name="UserProfile" component={UserProfile} />
+            <Stack.Screen name="BlockedUsers" component={BlockedUsers} />
           </>
         ) : (
           // Auth screens - only shown when user is NOT logged in

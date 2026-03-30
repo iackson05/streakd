@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { UsersIcon, PlusIcon, XIcon, FireIcon } from 'phosphor-react-native';
 import PostCard from '../components/feed/PostCard';
+import UserProfileModal from '../components/UserProfileModal';
 import { useAuth } from '../contexts/AuthContext';
 import { getFeedPosts, getUserReactionsForPosts } from '../services/posts';
 import { getUserActiveGoals } from '../services/goals';
@@ -29,6 +30,7 @@ export default function Feed({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
   const [goals, setGoals] = useState([]);
+  const [selectedUser, setSelectedUser] = useState(null); // { userId, username }
   const [loadingGoals, setLoadingGoals] = useState(false);
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(
     route?.params?.fromOnboarding === true
@@ -233,6 +235,7 @@ export default function Feed({ navigation, route }) {
                 is_subscribed: post.post_user_is_subscribed || false,
               }}
               initialUserReaction={userReactions[post.id] || null}
+              onUserPress={(userId, username) => setSelectedUser({ userId, username })}
               onDelete={(postId) => {
                 setPosts(prev => prev.filter(p => p.id !== postId));
               }}
@@ -304,6 +307,13 @@ export default function Feed({ navigation, route }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <UserProfileModal
+        userId={selectedUser?.userId}
+        username={selectedUser?.username}
+        visible={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+      />
     </SafeAreaView>
   );
 }

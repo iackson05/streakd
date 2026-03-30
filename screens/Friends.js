@@ -22,11 +22,13 @@ import {
 } from '../services/users';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import UserProfileModal from '../components/UserProfileModal';
 
 export default function Friends({ navigation }) {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' or 'requests'
+  const [selectedUser, setSelectedUser] = useState(null); // { userId, username }
 
   const { 
     friendsData, 
@@ -39,10 +41,17 @@ export default function Friends({ navigation }) {
 
   const { friends, pendingRequests, loading} = friendsData;
 
-  // Refresh silently on every screen focus (SWR pattern: show cache instantly, refetch in background)
+  // Refresh on focus, then poll every 15s while the screen stays open so incoming
+  // friend requests appear without the user having to leave and come back.
   useFocusEffect(
     useCallback(() => {
       if (user) fetchFriendsData();
+
+      const interval = setInterval(() => {
+        if (user) fetchFriendsData(true); // force=true bypasses the debounce
+      }, 15000);
+
+      return () => clearInterval(interval);
     }, [user, fetchFriendsData])
   );
 
@@ -201,18 +210,23 @@ export default function Friends({ navigation }) {
             ) : (
               filteredFriends.map((friend) => (
                 <View key={friend.id} style={styles.userCard}>
-                  <Image
-                    source={{
-                      uri: friend.profile_picture_url ||
-                           `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.username}`
-                    }}
-                    style={[styles.userAvatar, friend.is_subscribed && styles.userAvatarSubscribed]}
-                  />
-                  <View style={styles.userInfo}>
-                    <Text style={[styles.userName, friend.is_subscribed && styles.userNameSubscribed]}>
-                      {friend.username}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.userTouchable}
+                    onPress={() => setSelectedUser({ userId: friend.id, username: friend.username })}
+                  >
+                    <Image
+                      source={{
+                        uri: friend.profile_picture_url ||
+                             `https://api.dicebear.com/7.x/avataaars/svg?seed=${friend.username}`
+                      }}
+                      style={[styles.userAvatar, friend.is_subscribed && styles.userAvatarSubscribed]}
+                    />
+                    <View style={styles.userInfo}>
+                      <Text style={[styles.userName, friend.is_subscribed && styles.userNameSubscribed]}>
+                        {friend.username}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => handleRemoveFriend(friend.id)}
                     style={styles.removeButton}
@@ -266,6 +280,13 @@ export default function Friends({ navigation }) {
           </>
         )}
       </ScrollView>
+
+      <UserProfileModal
+        userId={selectedUser?.userId}
+        username={selectedUser?.username}
+        visible={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -388,6 +409,12 @@ const styles = StyleSheet.create({
   userAvatarSubscribed: {
     borderColor: '#FF6B35',
     borderWidth: 2,
+  },
+  userTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
   userInfo: {
     flex: 1,

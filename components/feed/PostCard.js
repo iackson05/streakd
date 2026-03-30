@@ -7,7 +7,6 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { TrashIcon } from 'phosphor-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
@@ -46,8 +45,7 @@ const REACTIONS = [
   },
 ];
 
-export default function PostCard({ post, onDelete, initialUserReaction }) {
-  const navigation = useNavigation();
+export default function PostCard({ post, onDelete, initialUserReaction, onUserPress }) {
   const { user } = useAuth();
   const { removePost } = useData();
   const [userReaction, setUserReaction] = useState(initialUserReaction);
@@ -164,10 +162,7 @@ export default function PostCard({ post, onDelete, initialUserReaction }) {
           <View style={styles.topSection}>
             <TouchableOpacity
               disabled={isOwnPost}
-              onPress={() => !isOwnPost && navigation.navigate('UserProfile', {
-                userId: post.user_id,
-                username: post.username,
-              })}
+              onPress={() => !isOwnPost && onUserPress?.(post.user_id, post.username)}
               style={styles.userTouchable}
             >
               <Image

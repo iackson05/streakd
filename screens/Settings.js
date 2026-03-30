@@ -21,6 +21,7 @@ import {
   CaretRightIcon,
   SignOutIcon,
   TrashIcon,
+  ProhibitIcon,
 } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { apiDelete } from '../services/api';
@@ -89,24 +90,20 @@ export default function Settings({ navigation }) {
       case 'Notifications':
         navigation.navigate('NotificationsSettings');
         break;
+      case 'Blocked Users':
+        navigation.navigate('BlockedUsers');
+        break;
       case 'Privacy Policy':
-        navigation.navigate('LegalText', { type: 'privacy' });
+        Linking.openURL('https://streakd.social/privacy.html');
         break;
       case 'Terms of Service':
-        navigation.navigate('LegalText', { type: 'terms' });
-        break;
-      case 'Appearance':
-        Alert.alert(
-          'Appearance',
-          'Dark mode is currently the only theme. More themes coming soon!',
-          [{ text: 'OK' }]
-        );
+        Linking.openURL('https://streakd.social/terms.html');
         break;
       case 'Help Center':
         Linking.openURL('https://streakd.app/help');
         break;
       case 'Send Feedback':
-        Linking.openURL('mailto:feedback@streakd.app?subject=Streakd%20Feedback');
+        Linking.openURL('mailto:feedback@streakd.social?subject=Streakd%20Feedback');
         break;
       default:
         console.log('Pressed:', label);
@@ -119,6 +116,7 @@ export default function Settings({ navigation }) {
       items: [
         { icon: UserIcon, label: 'Edit Profile', description: 'Update your info' },
         { icon: BellIcon, label: 'Notifications', description: 'Manage alerts' },
+        { icon: ProhibitIcon, label: 'Blocked Users', description: 'Manage who you\'ve blocked' },
         { icon: LockIcon, label: 'Privacy Policy', description: 'How we handle your data' },
       ],
     },

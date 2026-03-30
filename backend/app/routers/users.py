@@ -11,6 +11,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.post import Post
+from app.models.goal import Goal
 from app.models.friendship import Friendship
 from app.models.notification import NotificationSettings
 from app.models.block import Block
@@ -72,6 +73,17 @@ async def get_user_profile(
         raise HTTPException(status_code=404, detail="User not found")
 
     friend_count = await _get_friend_count(db, user_id)
+
+    post_count_result = await db.execute(
+        select(func.count()).where(Post.user_id == user_id)
+    )
+    post_count = post_count_result.scalar() or 0
+
+    completed_goals_result = await db.execute(
+        select(func.count()).where(Goal.user_id == user_id, Goal.completed == True)
+    )
+    completed_goals_count = completed_goals_result.scalar() or 0
+
     return UserProfile(
         id=user.id,
         username=user.username,
@@ -80,6 +92,9 @@ async def get_user_profile(
         profile_picture_url=user.profile_picture_url,
         created_at=user.created_at,
         friend_count=friend_count,
+        post_count=post_count,
+        completed_goals_count=completed_goals_count,
+        is_subscribed=user.is_subscribed,
     )
 
 
@@ -111,7 +126,6 @@ async def search_users(
         .where(
             or_(
                 User.username.ilike(f"%{query}%"),
-                User.name.ilike(f"%{query}%"),
             )
         )
         .where(User.id != current_user.id)

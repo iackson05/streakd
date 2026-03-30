@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { ArrowLeftIcon, MagnifyingGlassIcon, UserPlusIcon, CheckIcon, ClockIcon, XIcon } from 'phosphor-react-native';
+import UserProfileModal from '../components/UserProfileModal';
 import { useAuth } from '../contexts/AuthContext';
 import {
   searchUsers as searchUsersService,
@@ -28,6 +29,8 @@ export default function AddFriends({ navigation }) {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [friendships, setFriendships] = useState(new Map());
+  const [selectedUser, setSelectedUser] = useState(null);
+  const searchTimeout = useRef(null);
 
   useEffect(() => {
     if (user) {
@@ -48,11 +51,6 @@ export default function AddFriends({ navigation }) {
   };
 
   const searchUsers = async (query) => {
-    if (!query.trim()) {
-      setUsers([]);
-      return;
-    }
-
     setLoading(true);
     try {
       const { users: foundUsers, error } = await searchUsersService(query, user.id);
@@ -69,7 +67,12 @@ export default function AddFriends({ navigation }) {
 
   const handleSearch = (query) => {
     setSearchQuery(query);
-    searchUsers(query);
+    if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    if (!query.trim()) {
+      setUsers([]);
+      return;
+    }
+    searchTimeout.current = setTimeout(() => searchUsers(query), 750);
   };
 
   const handleSendRequest = async (friendId) => {
@@ -256,7 +259,7 @@ export default function AddFriends({ navigation }) {
               <View key={u.id} style={styles.userCard}>
                 <TouchableOpacity
                   style={styles.userTouchable}
-                  onPress={() => navigation.navigate('UserProfile', { userId: u.id, username: u.username })}
+                  onPress={() => setSelectedUser({ userId: u.id, username: u.username })}
                 >
                   <Image
                     source={{
@@ -275,6 +278,13 @@ export default function AddFriends({ navigation }) {
           )}
         </ScrollView>
       </View>
+
+      <UserProfileModal
+        userId={selectedUser?.userId}
+        username={selectedUser?.username}
+        visible={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+      />
     </SafeAreaView>
   );
 }

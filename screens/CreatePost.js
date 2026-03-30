@@ -11,7 +11,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { XIcon, FlipHorizontalIcon } from 'phosphor-react-native';
+import { XIcon, FlipHorizontalIcon, CheckIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { getUserGoals, incrementGoalStreak } from '../services/goals';
 import { createPost } from '../services/posts';
@@ -45,16 +45,18 @@ export default function CreatePostScreen({ navigation, route }) {
         return;
       }
 
-      if (!userGoals || userGoals.length === 0) {
+      const activeGoals = (userGoals || []).filter(g => !g.completed && !g.archived);
+
+      if (activeGoals.length === 0) {
         Alert.alert(
-          'No Goals',
-          'You need to create a goal before posting',
+          'No Active Goals',
+          'You need an active goal before posting',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         return;
       }
 
-      setGoals(userGoals);
+      setGoals(activeGoals);
 
       // If coming from goal page, pre-select that goal
       const preSelectedGoalId = route.params?.goalId;
@@ -127,10 +129,9 @@ export default function CreatePostScreen({ navigation, route }) {
         );
         return;
       }
-
-      Alert.alert('Success!', 'Post created', [
-        { text: 'OK', onPress: () => navigation.navigate('Feed') }
-      ]);
+      // on success navigate to feed
+      navigation.navigate('Feed') 
+  
     } catch (error) {
       console.error('Error creating post:', error);
       Alert.alert('Error', 'Failed to create post');
@@ -152,20 +153,26 @@ export default function CreatePostScreen({ navigation, route }) {
         </View>
 
         <View style={styles.goalList}>
-          {goals.map((goal) => (
-            <TouchableOpacity
-              key={goal.id}
-              style={styles.goalItem}
-              onPress={() => handleGoalSelect(goal)}
-            >
-              <View>
-                <Text style={styles.goalTitle}>{goal.title}</Text>
-                {goal.description && (
-                  <Text style={styles.goalDescription}>{goal.description}</Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+          {goals.map((goal) => {
+            const isSelected = selectedGoal?.id === goal.id;
+            return (
+              <TouchableOpacity
+                key={goal.id}
+                style={[styles.goalItem, isSelected && styles.goalItemSelected]}
+                onPress={() => handleGoalSelect(goal)}
+              >
+                <View style={styles.goalItemContent}>
+                  <View style={styles.goalItemText}>
+                    <Text style={styles.goalTitle}>{goal.title}</Text>
+                    {goal.description && (
+                      <Text style={styles.goalDescription}>{goal.description}</Text>
+                    )}
+                  </View>
+                  {isSelected && <CheckIcon color="#fff" size={20} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </SafeAreaView>
     );
@@ -323,6 +330,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.1)',
     borderRadius: 12,
     padding: 16,
+  },
+  goalItemSelected: {
+    borderColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  goalItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalItemText: {
+    flex: 1,
   },
   goalTitle: {
     color: '#fff',

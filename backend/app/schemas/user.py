@@ -12,6 +12,8 @@ class UserProfile(BaseModel):
     profile_picture_url: str | None
     created_at: datetime
     friend_count: int = 0
+    post_count: int = 0
+    completed_goals_count: int = 0
     is_subscribed: bool = False
 
     model_config = {"from_attributes": True}

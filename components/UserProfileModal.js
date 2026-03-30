@@ -2,18 +2,17 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   Image,
+  TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
-  StatusBar,
+  Modal,
   ActivityIndicator,
   Alert,
   ActionSheetIOS,
   Platform,
+  Pressable,
 } from 'react-native';
-import { ArrowLeftIcon, DotsThreeIcon, UserPlusIcon, CheckIcon, ClockIcon, UsersIcon } from 'phosphor-react-native';
+import { XIcon, DotsThreeIcon, UserPlusIcon, CheckIcon, ClockIcon, CameraIcon, TrophyIcon, UsersIcon } from 'phosphor-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
 import { apiGet } from '../services/api';
@@ -25,20 +24,25 @@ import {
   reportContent,
 } from '../services/users';
 
-export default function UserProfile({ navigation, route }) {
-  const { userId, username: initialUsername } = route.params;
+export default function UserProfileModal({ userId, username: initialUsername, visible, onClose }) {
   const { user } = useAuth();
   const { invalidateFriends, invalidateFeed } = useData();
 
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [friendshipStatus, setFriendshipStatus] = useState(null); // null, 'pending_sent', 'pending_received', 'accepted'
+  const [loading, setLoading] = useState(false);
+  const [friendshipStatus, setFriendshipStatus] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    loadProfile();
-    loadFriendshipStatus();
-  }, [userId]);
+    if (visible && userId) {
+      setProfile(null);
+      setFriendshipStatus(null);
+      setLoading(true);
+      Promise.all([loadProfile(), loadFriendshipStatus()]).finally(() =>
+        setLoading(false)
+      );
+    }
+  }, [visible, userId]);
 
   const loadProfile = async () => {
     try {
@@ -46,8 +50,6 @@ export default function UserProfile({ navigation, route }) {
       setProfile(data);
     } catch (error) {
       console.error('Error loading user profile:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -55,7 +57,6 @@ export default function UserProfile({ navigation, route }) {
     try {
       const { friendships } = await getUserFriendships(user.id);
       if (!friendships) return;
-
       const friendship = friendships.get(userId);
       if (!friendship) {
         setFriendshipStatus(null);
@@ -84,13 +85,16 @@ export default function UserProfile({ navigation, route }) {
   };
 
   const handleRemoveFriend = async () => {
+    const isPending = friendshipStatus === 'pending_sent';
     Alert.alert(
-      'Remove Friend',
-      `Are you sure you want to remove ${profile?.username || 'this user'} as a friend?`,
+      isPending ? 'Cancel Request' : 'Remove Friend',
+      isPending
+        ? `Cancel your friend request to ${profile?.username || 'this user'}?`
+        : `Remove ${profile?.username || 'this user'} as a friend?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: isPending ? 'Cancel Request' : 'Remove',
           style: 'destructive',
           onPress: async () => {
             setActionLoading(true);
@@ -98,7 +102,6 @@ export default function UserProfile({ navigation, route }) {
               const { error } = await removeFriend(user.id, userId);
               if (error) throw error;
               setFriendshipStatus(null);
-              setGoals([]);
               invalidateFriends();
               invalidateFeed();
             } catch (error) {
@@ -115,7 +118,7 @@ export default function UserProfile({ navigation, route }) {
   const handleBlock = () => {
     Alert.alert(
       'Block User',
-      `Block ${profile?.username || 'this user'}? They won't be able to see your profile or posts, and you won't see theirs. Any existing friendship will be removed.`,
+      `Block ${profile?.username || 'this user'}? They won't be able to see your profile or posts, and you won't see theirs.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -127,9 +130,8 @@ export default function UserProfile({ navigation, route }) {
               if (error) throw error;
               invalidateFriends();
               invalidateFeed();
-              Alert.alert('User Blocked', "You won't see their content anymore.", [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
+              onClose();
+              Alert.alert('User Blocked', "You won't see their content anymore.");
             } catch (error) {
               Alert.alert('Error', 'Failed to block user');
             }
@@ -139,41 +141,9 @@ export default function UserProfile({ navigation, route }) {
     );
   };
 
-  const handleReport = () => {
-    const reasons = ['Inappropriate Content', 'Spam', 'Harassment', 'Other'];
-    const reasonKeys = ['inappropriate', 'spam', 'harassment', 'other'];
-
-    if (Platform.OS === 'ios') {
-      ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancel', ...reasons],
-          cancelButtonIndex: 0,
-          title: 'Report User',
-          message: 'Why are you reporting this user?',
-        },
-        async (buttonIndex) => {
-          if (buttonIndex === 0) return;
-          const reason = reasonKeys[buttonIndex - 1];
-          await submitReport(reason);
-        }
-      );
-    } else {
-      Alert.alert('Report User', 'Why are you reporting this user?', [
-        { text: 'Cancel', style: 'cancel' },
-        ...reasons.map((label, i) => ({
-          text: label,
-          onPress: () => submitReport(reasonKeys[i]),
-        })),
-      ]);
-    }
-  };
-
   const submitReport = async (reason) => {
     try {
-      const { error } = await reportContent({
-        reportedUserId: userId,
-        reason,
-      });
+      const { error } = await reportContent({ reportedUserId: userId, reason });
       if (error) throw error;
       Alert.alert('Report Submitted', 'Thank you for your report. We will review it shortly.');
     } catch (error) {
@@ -181,14 +151,30 @@ export default function UserProfile({ navigation, route }) {
     }
   };
 
+  const handleReport = () => {
+    const reasons = ['Inappropriate Content', 'Spam', 'Harassment', 'Other'];
+    const reasonKeys = ['inappropriate', 'spam', 'harassment', 'other'];
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: ['Cancel', ...reasons], cancelButtonIndex: 0, title: 'Report User' },
+        (buttonIndex) => {
+          if (buttonIndex === 0) return;
+          submitReport(reasonKeys[buttonIndex - 1]);
+        }
+      );
+    } else {
+      Alert.alert('Report User', 'Why are you reporting this user?', [
+        { text: 'Cancel', style: 'cancel' },
+        ...reasons.map((label, i) => ({ text: label, onPress: () => submitReport(reasonKeys[i]) })),
+      ]);
+    }
+  };
+
   const showMoreOptions = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
-        {
-          options: ['Cancel', 'Report User', 'Block User'],
-          cancelButtonIndex: 0,
-          destructiveButtonIndex: 2,
-        },
+        { options: ['Cancel', 'Report User', 'Block User'], cancelButtonIndex: 0, destructiveButtonIndex: 2 },
         (buttonIndex) => {
           if (buttonIndex === 1) handleReport();
           if (buttonIndex === 2) handleBlock();
@@ -211,7 +197,6 @@ export default function UserProfile({ navigation, route }) {
         </View>
       );
     }
-
     switch (friendshipStatus) {
       case 'accepted':
         return (
@@ -222,10 +207,10 @@ export default function UserProfile({ navigation, route }) {
         );
       case 'pending_sent':
         return (
-          <View style={styles.pendingButton}>
+          <TouchableOpacity style={styles.pendingButton} onPress={handleRemoveFriend}>
             <ClockIcon color="rgba(255,255,255,0.7)" size={16} />
-            <Text style={styles.pendingButtonText}>Pending</Text>
-          </View>
+            <Text style={styles.pendingButtonText}>Pending · Tap to Cancel</Text>
+          </TouchableOpacity>
         );
       case 'pending_received':
         return (
@@ -244,100 +229,120 @@ export default function UserProfile({ navigation, route }) {
     }
   };
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#fff" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      {/* Backdrop — tap to dismiss */}
+      <Pressable style={styles.backdrop} onPress={onClose} />
 
-  if (!profile) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
+      <View style={styles.sheet}>
+        {/* Handle bar */}
+        <View style={styles.handle} />
+
+        {/* Header row */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-            <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
+          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <XIcon color="rgba(255,255,255,0.7)" size={18} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>
+            {profile ? `@${profile.username}` : (initialUsername ? `@${initialUsername}` : '')}
+          </Text>
+          <TouchableOpacity onPress={showMoreOptions} style={styles.moreButton}>
+            <DotsThreeIcon color="rgba(255,255,255,0.7)" size={20} weight="bold" />
           </TouchableOpacity>
         </View>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.errorText}>User not found</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
-  return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#fff" />
+          </View>
+        ) : profile ? (
+          <View style={styles.content}>
+            {/* Avatar */}
+            <Image
+              source={{
+                uri: profile.profile_picture_url ||
+                     `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`,
+              }}
+              style={styles.avatar}
+            />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>@{profile.username}</Text>
-        <TouchableOpacity onPress={showMoreOptions} style={styles.moreButton}>
-          <DotsThreeIcon color="rgba(255,255,255,0.7)" size={20} weight="bold" />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Profile Card */}
-        <View style={styles.profileCard}>
-          <Image
-            source={{
-              uri: profile.profile_picture_url ||
-                   `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile.username}`
-            }}
-            style={styles.avatar}
-          />
-          {profile.name && (
-            <Text style={[styles.name, profile.is_subscribed && styles.nameSubscribed]}>
-              {profile.name}
+            {/* Name / username */}
+            {profile.name ? (
+              <Text style={[styles.name, profile.is_subscribed && styles.nameSubscribed]}>
+                {profile.name}
+              </Text>
+            ) : null}
+            <Text style={[
+              styles.username,
+              !profile.name && styles.usernameStandalone,
+              profile.is_subscribed && styles.usernameSubscribed,
+            ]}>
+              @{profile.username}
             </Text>
-          )}
-          <Text style={[styles.username, !profile.name && styles.usernameStandalone, profile.is_subscribed && styles.usernameSubscribed]}>
-            @{profile.username}
-          </Text>
 
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <UsersIcon color="rgba(255,255,255,0.5)" size={12} />
-              <Text style={styles.statValue}>{profile.friend_count}</Text>
-              <Text style={styles.statLabel}>Friends</Text>
+            {/* Stats */}
+            <View style={styles.statsRow}>
+              <View style={styles.statItem}>
+                <TrophyIcon color="rgba(255,255,255,0.5)" size={13} />
+                <Text style={styles.statValue}>{profile.completed_goals_count}</Text>
+                <Text style={styles.statLabel}>Completed</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <UsersIcon color="rgba(255,255,255,0.5)" size={13} />
+                <Text style={styles.statValue}>{profile.friend_count}</Text>
+                <Text style={styles.statLabel}>Friends</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <CameraIcon color="rgba(255,255,255,0.5)" size={13} />
+                <Text style={styles.statValue}>{profile.post_count}</Text>
+                <Text style={styles.statLabel}>Posts</Text>
+              </View>
+            </View>
+
+            {/* Friend action */}
+            <View style={styles.actionRow}>
+              {renderFriendButton()}
             </View>
           </View>
-
-          {/* Friend Action Button */}
-          <View style={styles.actionRow}>
-            {renderFriendButton()}
+        ) : (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.errorText}>Could not load profile</Text>
           </View>
-        </View>
-
-      </ScrollView>
-    </SafeAreaView>
+        )}
+      </View>
+    </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  backdrop: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  sheet: {
+    backgroundColor: '#0A0A0A',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    borderColor: 'rgba(255,255,255,0.1)',
+    paddingBottom: 40,
   },
-  errorText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 16,
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 4,
   },
   header: {
     flexDirection: 'row',
@@ -348,10 +353,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(255,255,255,0.05)',
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -360,41 +365,37 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
-    flex: 1,
-    textAlign: 'center',
   },
   moreButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 16,
-    paddingTop: 32,
-  },
-  profileCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 24,
+  loadingContainer: {
+    paddingVertical: 48,
     alignItems: 'center',
-    marginBottom: 32,
+  },
+  errorText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+  },
+  content: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 8,
   },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.2)',
     marginBottom: 16,
@@ -423,12 +424,25 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
-    gap: 32,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
     marginBottom: 20,
+    width: '100%',
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
-    gap: 2,
+    gap: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   statValue: {
     color: '#fff',
@@ -449,7 +463,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#fff',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   addFriendButtonText: {
     color: '#000',
@@ -463,7 +477,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#fff',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   friendsButtonText: {
     color: '#000',
@@ -475,11 +489,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: 'rgba(255,255,255,0.15)',
     borderRadius: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
   },
   pendingButtonText: {
     color: 'rgba(255,255,255,0.7)',
@@ -489,79 +503,8 @@ const styles = StyleSheet.create({
   friendActionButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 12,
-    paddingVertical: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  goalsLoading: {
-    paddingVertical: 32,
-    alignItems: 'center',
-  },
-  goalsContainer: {
-    gap: 12,
-    marginBottom: 32,
-  },
-  goalCard: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-  },
-  goalContent: {
-    padding: 16,
-    gap: 8,
-  },
-  goalTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  goalName: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-    flex: 1,
-  },
-  goalStreak: {
-    color: 'rgba(255,200,100,0.9)',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  goalDescription: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  emptyState: {
-    backgroundColor: '#0A0A0A',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 32,
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 32,
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  emptySubtext: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 14,
-    textAlign: 'center',
+    paddingVertical: 13,
   },
 });

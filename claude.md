@@ -28,7 +28,8 @@ React Native mobile app for goal accountability with friends. Users create goals
 - **Image Storage**: Cloudflare R2 (S3-compatible, via boto3)
 - **Deployment**: Docker + Docker Compose
 
-**Base URL**: `http://localhost:8000`
+**Base URL**: `https://api.streakd.social` (Digital Ocean droplet — HTTPS confirmed working via nginx + Let's Encrypt)
+**Website**: `https://streakd.social` (live on same droplet — privacy policy and ToS pages are live)
 
 ## Database Schema
 
@@ -379,7 +380,7 @@ REVENUECAT_API_KEY=
 - ✅ Settings screen (notifications, account management)
 - ⏳ Streak reset on missed deadline
 - ✅ In-app account deletion (`DELETE /users/me` + Settings.js flow)
-- ✅ Privacy Policy / Terms of Service (in-app via LegalText screen; still needs web hosting for App Store listing)
+- ✅ Privacy Policy / Terms of Service (in-app via LegalText screen; live at streakd.social/privacy.html and streakd.social/terms.html)
 - ✅ Content moderation (block users, report users/posts, feed/search filtering)
 - ✅ UserProfile screen (view other users, add/block/report, view friend goals)
 - ⏳ Empty states polish
@@ -387,10 +388,15 @@ REVENUECAT_API_KEY=
 ## Known Issues & Required Fixes
 
 ### App Store Blockers
-1. ~~**No in-app account deletion**~~ — FIXED: `DELETE /users/me` endpoint added, Settings.js calls it directly with double confirmation.
-2. ~~**No Privacy Policy or Terms of Service**~~ — FIXED: Added in-app LegalText screen + text files in `legal/`. Still needs to be hosted on a web domain and linked from App Store listing.
+1. ~~**No in-app account deletion**~~ — FIXED: `DELETE /users/me` endpoint added, Settings.js calls it directly with double confirmation. Verified working end-to-end.
+2. ~~**No Privacy Policy or Terms of Service**~~ — FIXED: In-app LegalText screen + hosted live at streakd.social/privacy.html and streakd.social/terms.html.
 3. ~~**No content moderation**~~ — FIXED: Added block/report system with `blocks` and `reports` tables, `/blocks/` router, feed/search filtering, UserProfile screen with report/block actions.
-4. **RevenueCat production key** — `subscription.js` uses test key in dev, but production key placeholder needs to be replaced with actual `appl_...` key. Requires App Store Connect setup first: create subscription product, add shared secret to RevenueCat, link product to `streakd+` entitlement and `default` offering, then copy production public API key.
+4. **RevenueCat production key** — `subscription.js` uses test key. Requires Apple Developer account first: create subscription product in App Store Connect, add shared secret to RevenueCat, link product to `streakd+` entitlement and `default` offering, then copy production `appl_...` key.
+5. **Bundle ID placeholder** — `app.json` still uses `com.yourname.streakd`. Requires Apple Developer account to register real bundle ID.
+6. ~~**Backend HTTPS**~~ — FIXED: `api.streakd.social` is live with nginx + Let's Encrypt, proxying to port 8000. `app.json` updated to use it.
+7. **Missing photo library permission** — `app.json` needs `NSPhotoLibraryUsageDescription` string added under `ios.infoPlist`. App accesses photo library for post images and profile pictures; without this string iOS will crash.
+8. **APNs certificate** — Push notifications require an APNs key configured in Apple Developer account and linked in EAS.
+9. **App Store Connect metadata** — Requires Apple Developer account: app listing, screenshots (have website assets), description, keywords, age rating, category.
 
 ### Security Issues
 5. ~~**CORS wildcard + credentials**~~ — FIXED: `main.py` now disables credentials when origins is `["*"]`. Set `CORS_ORIGINS` in `.env` to your domain(s) for production.

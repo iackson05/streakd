@@ -278,12 +278,20 @@ export const DataProvider = ({ children }) => {
       ...prev,
       friends: [...prev.friends, friend],
     }));
+    setProfileData(prev => ({
+      ...prev,
+      stats: { ...prev.stats, friendCount: prev.stats.friendCount + 1 },
+    }));
   };
 
   const removeFriend = (friendId) => {
     setFriendsData(prev => ({
       ...prev,
       friends: prev.friends.filter(f => f.id !== friendId),
+    }));
+    setProfileData(prev => ({
+      ...prev,
+      stats: { ...prev.stats, friendCount: Math.max(0, prev.stats.friendCount - 1) },
     }));
   };
 
@@ -306,6 +314,10 @@ export const DataProvider = ({ children }) => {
       ...prev,
       friends: [...prev.friends, friend],
       pendingRequests: prev.pendingRequests.filter(r => r.senderId !== senderId),
+    }));
+    setProfileData(prev => ({
+      ...prev,
+      stats: { ...prev.stats, friendCount: prev.stats.friendCount + 1 },
     }));
   };
 
