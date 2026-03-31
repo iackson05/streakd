@@ -57,6 +57,9 @@ async def send_streak_notifications(
         one_hr_warn = expires_at - timedelta(hours=1)
 
         if now >= expires_at:
+            if goal.streak_count > 0:
+                goal.streak_count = 0
+                await db.commit()
             continue
 
         should_4hr = four_hr_warn <= now < one_hr_warn
@@ -77,11 +80,11 @@ async def send_streak_notifications(
         if should_4hr:
             notif_type = "streak_4hr"
             title = f"⚠️ {goal.title} - 4 Hours Left!"
-            body = "Your streak expires in 4 hours. Post now to keep it alive! 🔥"
+            body = "Your streak expires in 4 hours. Post now to keep it alive!"
         elif should_1hr:
             notif_type = "streak_1hr"
             title = f"🚨 {goal.title} - 1 Hour Left!"
-            body = "Last chance! Your streak expires in 1 hour. Don't lose your progress! ⏰"
+            body = "Last chance! Your streak expires in 1 hour. Don't lose your progress!"
 
         if notif_type:
             expo_result = await send_expo_push(
