@@ -277,18 +277,6 @@ body {
   position: relative;
 }
 
-.phone-frame::before {
-  content: '';
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80px;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-  z-index: 1;
-}
 
 .phone-frame img {
   width: 100%;
