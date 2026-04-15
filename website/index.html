@@ -8,7 +8,8 @@
   <meta name="apple-itunes-app" content="app-id=YOUR_APP_ID">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="shortcut icon" href="/favicon.ico">
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
+  <script>if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; window.scrollTo(0, 0);</script>
 </head>
 <body>
   <!-- Nav -->
@@ -155,7 +156,7 @@
 
       function update() {
         rafPending = false;
-        var vh = window.innerHeight;
+        var vh = (window.visualViewport ? window.visualViewport.height : window.innerHeight);
         var mobile = window.innerWidth < 720;
         var scrolled = -section.getBoundingClientRect().top;
 
@@ -231,7 +232,11 @@
         if (!rafPending) { rafPending = true; requestAnimationFrame(update); }
       }, { passive: true });
 
-      window.addEventListener('resize', update);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', update);
+      } else {
+        window.addEventListener('resize', update);
+      }
       update();
     })();
   </script>

@@ -226,12 +226,14 @@ body {
 .showcase {
   position: relative;
   height: 400vh;
+  height: 400dvh;
 }
 
 .showcase-sticky {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -595,8 +597,11 @@ body {
   }
 
   .phone-frame {
-    width: 200px;
+    aspect-ratio: 200 / 430;
     height: 430px;
+    max-height: 50vh;
+    max-height: 50dvh;
+    width: auto;
   }
 
   .showcase-text {
