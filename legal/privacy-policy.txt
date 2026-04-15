@@ -1,8 +1,8 @@
 STREAKD PRIVACY POLICY
-Last Updated: March 19, 2026
+Last Updated: March 31, 2026
 
 1. INTRODUCTION
-Streakd ("we", "us", or "our") operates the Streakd mobile application (the "App"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our App.
+streakd ("we", "us", or "our") operates the streakd mobile application (the "App"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our App.
 
 2. INFORMATION WE COLLECT
 
@@ -10,8 +10,14 @@ Personal Information You Provide:
 - Account information: email address, username, display name, and password
 - Profile picture (optional)
 - Goal titles and descriptions you create
-- Photos you upload as progress posts
-- Captions on posts
+- Photos and captions you upload as progress posts
+
+Information Generated Through Your Use of the App:
+- Friendship connections (who you are friends with, pending and accepted)
+- Reactions you place on friends' posts
+- Block records (users you have blocked)
+- Reports you submit about other users or posts
+- Streak counts and post history for each goal
 
 Information Collected Automatically:
 - Device push notification token (with your permission)
@@ -23,22 +29,24 @@ We use the information we collect to:
 - Display your posts to your friends (based on your privacy settings)
 - Send push notifications (streak reminders, friend requests, reactions) if enabled
 - Process subscription payments through Apple's App Store (via RevenueCat)
+- Enforce blocks and review reports to maintain a safe community
 - Improve and maintain the App
 
 4. HOW WE SHARE YOUR INFORMATION
 We do not sell your personal information. We share information only as follows:
-- With your friends: Your posts, username, and profile picture are visible to accepted friends (unless you set a goal to "private").
+- With your friends: Your posts, username, display name, and profile picture are visible to accepted friends (unless you set a goal to "private").
 - Service providers: We use third-party services to operate the App:
+  - DigitalOcean for server and database hosting
   - Cloudflare R2 for image storage
   - RevenueCat for subscription management
   - Expo for push notifications
 - Legal requirements: We may disclose information if required by law.
 
 5. DATA STORAGE AND SECURITY
-Your data is stored on secured servers. Images are stored via Cloudflare R2. We use industry-standard security measures including encrypted passwords (bcrypt) and JWT-based authentication. However, no method of electronic storage is 100% secure.
+Your data is stored on secured servers hosted on DigitalOcean. Images are stored via Cloudflare R2. We use industry-standard security measures including encrypted passwords (bcrypt) and JWT-based authentication with access and refresh token rotation. However, no method of electronic storage is 100% secure.
 
 6. DATA RETENTION
-We retain your data for as long as your account is active. When you delete your account, all your data (profile, goals, posts, images, friendships, and notification settings) is permanently deleted.
+We retain your data for as long as your account is active. When you delete your account, all your data (profile, goals, posts, images, friendships, reactions, blocks, reports, and notification settings) is permanently deleted.
 
 7. YOUR RIGHTS
 You may:
@@ -46,6 +54,7 @@ You may:
 - Delete your account and all associated data from within the App (Settings > Delete Account)
 - Control who sees your posts via goal privacy settings ("friends" or "private")
 - Enable or disable push notifications and specific notification types
+- Block other users to prevent them from seeing your content
 
 8. CHILDREN'S PRIVACY
 The App is not intended for children under 13. We do not knowingly collect information from children under 13. If we learn that we have collected information from a child under 13, we will delete it promptly.
@@ -58,4 +67,5 @@ We may update this Privacy Policy from time to time. We will notify you of chang
 
 11. CONTACT US
 If you have questions about this Privacy Policy, contact us at:
-Email: support@streakd.app
+Email: support@streakd.social
+Legal inquiries: legal@streakd.social

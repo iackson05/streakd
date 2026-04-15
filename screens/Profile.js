@@ -280,19 +280,24 @@ export default function Profile({ navigation }) {
           <ArrowLeftIcon color="rgba(255,255,255,0.7)" size={20} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Profile</Text>
           {subscriptionLoading ? (
             <ActivityIndicator size="small" color="rgba(255,255,255,0.3)" style={{ marginTop: 2 }} />
           ) : !isSubscribed ? (
-            <TouchableOpacity
-              style={styles.streakdPlusBadge}
-              onPress={() => navigation.navigate('Paywall')}
-            >
-              <Text style={styles.streakdPlusBadgeText}>streakd+</Text>
+            <TouchableOpacity style={styles.streakdPlusBadge} onPress={() => navigation.navigate('Paywall')}>
+              <Text style={styles.streakdPlusSignUp}>Sign Up</Text>
+              <Image
+                source={require('../assets/streakdplus.png')}
+                style={styles.streakdPlusLogo}
+                resizeMode="contain"
+              />
             </TouchableOpacity>
           ) : (
-            <View style={styles.streakdPlusActiveBadge}>
-              <Text style={styles.streakdPlusActiveBadgeText}>streakd+ ✓</Text>
+            <View style={[styles.streakdPlusBadge, { borderColor: 'rgba(255, 107, 53, 0.3)', backgroundColor: 'rgba(255, 107, 53, 0.07)' }]}>
+              <Image
+                source={require('../assets/streakdplus.png')}
+                style={[styles.streakdPlusLogo, styles.streakdPlusLogoActive]}
+                resizeMode="contain"
+              />
             </View>
           )}
         </View>
@@ -371,10 +376,8 @@ export default function Profile({ navigation }) {
 
         {atGoalLimit && (
           <TouchableOpacity style={styles.limitBanner} onPress={() => navigation.navigate('Paywall')}>
-            <Text style={styles.limitBannerText}>
-              Free accounts are limited to {MAX_ACTIVE_GOALS_FREE} active goals.{' '}
-              <Text style={styles.limitBannerLink}>Upgrade to Streakd+ →</Text>
-            </Text>
+            <Text style={styles.limitBannerText}>Free accounts are limited to {MAX_ACTIVE_GOALS_FREE} active goals.</Text>
+            <Text style={styles.limitBannerLink}>Upgrade to streakd+</Text>
           </TouchableOpacity>
         )}
 
@@ -622,30 +625,28 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   streakdPlusBadge: {
-    backgroundColor: 'rgba(255, 107, 53, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(255, 107, 53, 0.5)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(255, 107, 53, 0.1)',
+    alignItems: 'center',
   },
-  streakdPlusBadgeText: {
+  streakdPlusSignUp: {
     color: '#FF6B35',
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginBottom: 3,
   },
-  streakdPlusActiveBadge: {
-    backgroundColor: 'rgba(255, 107, 53, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 107, 53, 0.3)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
+  streakdPlusLogo: {
+    width: 72,
+    height: 20,
   },
-  streakdPlusActiveBadgeText: {
-    color: 'rgba(255, 107, 53, 0.8)',
-    fontSize: 11,
-    fontWeight: '500',
+  streakdPlusLogoActive: {
+    opacity: 0.5,
   },
   backButton: {
     width: 40,
@@ -788,6 +789,8 @@ const styles = StyleSheet.create({
   limitBannerLink: {
     color: '#FF6B35',
     fontWeight: '600',
+    fontSize: 13,
+    marginTop: 4,
   },
   expandChevron: {
     color: 'rgba(255,255,255,0.4)',

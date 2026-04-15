@@ -25,6 +25,7 @@ export default function SignUpScreen({ navigation }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
 
   const validateInputs = () => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,6 +50,11 @@ export default function SignUpScreen({ navigation }) {
 
     if (password !== confirmPassword) {
       Alert.alert('Password Mismatch', 'Passwords do not match');
+      return false;
+    }
+
+    if (!ageConfirmed) {
+      Alert.alert('Age Requirement', 'You must confirm that you are at least 13 years old to use streakd.');
       return false;
     }
 
@@ -173,6 +179,18 @@ export default function SignUpScreen({ navigation }) {
               />
             </View>
 
+            {/* Age Confirmation */}
+            <TouchableOpacity
+              onPress={() => setAgeConfirmed(!ageConfirmed)}
+              style={styles.checkboxRow}
+              disabled={loading}
+            >
+              <View style={[styles.checkbox, ageConfirmed && styles.checkboxChecked]}>
+                {ageConfirmed && <Text style={styles.checkboxTick}>✓</Text>}
+              </View>
+              <Text style={styles.checkboxLabel}>I confirm I am at least 13 years old</Text>
+            </TouchableOpacity>
+
             {/* Sign Up Button */}
             <TouchableOpacity
               style={[styles.button, loading && styles.buttonDisabled]}
@@ -266,6 +284,36 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  checkboxChecked: {
+    backgroundColor: BRAND,
+    borderColor: BRAND,
+  },
+  checkboxTick: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  checkboxLabel: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 13,
+    flex: 1,
   },
   footer: {
     flexDirection: 'row',

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy - Streakd</title>
+  <title>Privacy Policy - streakd</title>
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="shortcut icon" href="/favicon.ico">
   <link rel="stylesheet" href="style.css">
@@ -13,17 +13,17 @@
     <div class="nav-inner">
       <a href="index.html" class="nav-logo"><img src="assets/logo.png" alt="streakd" height="28"></a>
       <div class="nav-links">
-        <a href="index.html#download" class="nav-cta">Download</a>
+        <a href="index.html#beta" class="nav-cta">Beta Coming Soon</a>
       </div>
     </div>
   </nav>
 
   <div class="legal-page">
     <h1>Privacy Policy</h1>
-    <p class="updated">Last Updated: March 19, 2026</p>
+    <p class="updated">Last Updated: March 31, 2026</p>
 
     <h2>1. Introduction</h2>
-    <p>Streakd ("we", "us", or "our") operates the Streakd mobile application (the "App"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our App.</p>
+    <p>streakd ("we", "us", or "our") operates the streakd mobile application (the "App"). This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our App.</p>
 
     <h2>2. Information We Collect</h2>
     <p><strong>Personal Information You Provide:</strong></p>
@@ -31,7 +31,15 @@
       <li>Account information: email address, username, display name, and password</li>
       <li>Profile picture (optional)</li>
       <li>Goal titles and descriptions you create</li>
-      <li>Photos you upload as progress posts</li>
+      <li>Photos and captions you upload as progress posts</li>
+    </ul>
+    <p><strong>Information Generated Through Your Use of the App:</strong></p>
+    <ul>
+      <li>Friendship connections (who you are friends with, pending and accepted)</li>
+      <li>Reactions you place on friends' posts</li>
+      <li>Block records (users you have blocked)</li>
+      <li>Reports you submit about other users or posts</li>
+      <li>Streak counts and post history for each goal</li>
     </ul>
     <p><strong>Information Collected Automatically:</strong></p>
     <ul>
@@ -46,15 +54,17 @@
       <li>Display your posts to your friends (based on your privacy settings)</li>
       <li>Send push notifications (streak reminders, friend requests, reactions) if enabled</li>
       <li>Process subscription payments through Apple's App Store (via RevenueCat)</li>
+      <li>Enforce blocks and review reports to maintain a safe community</li>
       <li>Improve and maintain the App</li>
     </ul>
 
     <h2>4. How We Share Your Information</h2>
     <p>We do not sell your personal information. We share information only as follows:</p>
     <ul>
-      <li><strong>With your friends:</strong> Your posts, username, and profile picture are visible to accepted friends (unless you set a goal to "private").</li>
+      <li><strong>With your friends:</strong> Your posts, username, display name, and profile picture are visible to accepted friends (unless you set a goal to "private").</li>
       <li><strong>Service providers:</strong> We use third-party services to operate the App:
         <ul>
+          <li>DigitalOcean for server and database hosting</li>
           <li>Cloudflare R2 for image storage</li>
           <li>RevenueCat for subscription management</li>
           <li>Expo for push notifications</li>
@@ -64,10 +74,10 @@
     </ul>
 
     <h2>5. Data Storage and Security</h2>
-    <p>Your data is stored on secured servers. Images are stored via Cloudflare R2. We use industry-standard security measures including encrypted passwords (bcrypt) and JWT-based authentication. However, no method of electronic storage is 100% secure.</p>
+    <p>Your data is stored on secured servers hosted on DigitalOcean. Images are stored via Cloudflare R2. We use industry-standard security measures including encrypted passwords (bcrypt) and JWT-based authentication with access and refresh token rotation. However, no method of electronic storage is 100% secure.</p>
 
     <h2>6. Data Retention</h2>
-    <p>We retain your data for as long as your account is active. When you delete your account, all your data (profile, goals, posts, images, friendships, and notification settings) is permanently deleted.</p>
+    <p>We retain your data for as long as your account is active. When you delete your account, all your data (profile, goals, posts, images, friendships, reactions, blocks, reports, and notification settings) is permanently deleted.</p>
 
     <h2>7. Your Rights</h2>
     <p>You may:</p>
@@ -76,6 +86,7 @@
       <li>Delete your account and all associated data from within the App (Settings &gt; Delete Account)</li>
       <li>Control who sees your posts via goal privacy settings ("friends" or "private")</li>
       <li>Enable or disable push notifications and specific notification types</li>
+      <li>Block other users to prevent them from seeing your content</li>
     </ul>
 
     <h2>8. Children's Privacy</h2>
@@ -89,12 +100,13 @@
 
     <h2>11. Contact Us</h2>
     <p>If you have questions about this Privacy Policy, contact us at:<br>
-    Email: <a href="mailto:support@streakd.app">support@streakd.app</a></p>
+    Email: <a href="mailto:support@streakd.social">support@streakd.social</a><br>
+    Legal inquiries: <a href="mailto:legal@streakd.social">legal@streakd.social</a></p>
   </div>
 
   <footer class="footer">
     <div class="footer-bottom">
-      <p>&copy; 2026 Streakd. All rights reserved.</p>
+      <p>&copy; 2026 streakd. All rights reserved.</p>
     </div>
   </footer>
 </body>

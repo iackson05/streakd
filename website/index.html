@@ -92,80 +92,204 @@
       </div>
     </div>
 
-    <!-- Screenshot carousel — swipe on mobile, scroll on desktop -->
-    <div class="carousel">
-      <div class="carousel-track" id="carousel-track">
-        <div class="screenshot-placeholder" id="screenshot-1">
-          <img src="assets/friends.png" alt="Friends screen">
+  </section>
+
+  <!-- Screenshot Showcase -->
+  <section class="showcase" id="showcase">
+    <div class="showcase-sticky">
+      <div class="showcase-scene">
+
+        <div class="showcase-item" data-phone-dir="left">
+          <div class="showcase-phone">
+            <div class="phone-frame">
+              <img src="assets/friends.png" alt="Friends screen">
+            </div>
+          </div>
+          <div class="showcase-text">
+            <span class="showcase-eyebrow">Friends</span>
+            <h3>Add your friends and track goals together</h3>
+            <p>Follow your friends' goals, see their progress posts, and send reactions to keep the motivation going.</p>
+          </div>
         </div>
-        <div class="screenshot-placeholder" id="screenshot-2">
-          <img src="assets/feed.png" alt="Feed screen">
+
+        <div class="showcase-item" data-phone-dir="right">
+          <div class="showcase-text">
+            <span class="showcase-eyebrow">Feed</span>
+            <h3>See everyone's progress in real time</h3>
+            <p>A 24-hour feed of proof posts from your friends. If they showed up today, you'll know about it.</p>
+          </div>
+          <div class="showcase-phone">
+            <div class="phone-frame">
+              <img src="assets/feed.png" alt="Feed screen">
+            </div>
+          </div>
         </div>
-        <div class="screenshot-placeholder" id="screenshot-3">
-          <img src="assets/profile.png" alt="Profile screen">
+
+        <div class="showcase-item" data-phone-dir="left">
+          <div class="showcase-phone">
+            <div class="phone-frame">
+              <img src="assets/profile.png" alt="Profile screen">
+            </div>
+          </div>
+          <div class="showcase-text">
+            <span class="showcase-eyebrow">Profile</span>
+            <h3>Track your streaks and celebrate your wins</h3>
+            <p>Your profile shows every active goal, your current streak counts, and a full history of your progress posts.</p>
+          </div>
         </div>
+
       </div>
     </div>
-    <script>
-      (function() {
-        var track = document.getElementById('carousel-track');
-        var middle = document.getElementById('screenshot-2');
-        // Use requestAnimationFrame to ensure layout is calculated but before paint
-        requestAnimationFrame(function() {
-          var middleCenter = middle.offsetLeft + middle.offsetWidth / 2;
-          var trackVisible = track.clientWidth / 2;
-          track.scrollLeft = middleCenter - trackVisible;
-        });
-      })();
-    </script>
   </section>
+
+  <script>
+    (function () {
+      var section = document.getElementById('showcase');
+      var items = Array.from(section.querySelectorAll('.showcase-item'));
+      var rafPending = false;
+
+      function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+      function easeInCubic(t)  { return t * t * t; }
+      function clamp(x, a, b)  { return Math.max(a, Math.min(b, x)); }
+      function lerp(a, b, t)   { return a + (b - a) * t; }
+
+      function update() {
+        rafPending = false;
+        var vh = window.innerHeight;
+        var mobile = window.innerWidth < 720;
+        var scrolled = -section.getBoundingClientRect().top;
+
+        items.forEach(function (item, i) {
+          var phone = item.querySelector('.showcase-phone');
+          var text  = item.querySelector('.showcase-text');
+          var dir   = item.dataset.phoneDir; // 'left' | 'right'
+
+          // Local progress: 0 = this item's scroll window starts, 1 = ends
+          var t = (scrolled - i * vh) / vh;
+
+          // Item 0 enters right when sticky begins; later items overlap with prev exit
+          var enterStart = i === 0 ? 0.0 : -0.2;
+          var enterEnd   = i === 0 ? 0.4 : 0.15;
+          var exitStart  = i === items.length - 1 ? 99 : 0.75;
+          var exitEnd    = i === items.length - 1 ? 100 : 1.1;
+
+          if (t < enterStart) {
+            // Waiting off-screen
+            if (mobile) {
+              phone.style.transform = 'translateY(70px)';
+              text.style.transform  = 'translateY(50px)';
+            } else {
+              phone.style.transform = 'translateX(' + (dir === 'left' ? -130 : 130) + 'px)';
+              text.style.transform  = 'translateX(' + (dir === 'left' ?  110 : -110) + 'px)';
+            }
+            phone.style.opacity = '0';
+            text.style.opacity  = '0';
+
+          } else if (t < enterEnd) {
+            // Entering — phone leads slightly, text follows
+            var range = enterEnd - enterStart;
+            var pPhone = easeOutCubic(clamp((t - enterStart) / range, 0, 1));
+            var pText  = easeOutCubic(clamp((t - enterStart - range * 0.12) / range, 0, 1));
+
+            if (mobile) {
+              phone.style.transform = 'translateY(' + lerp(70, 0, pPhone) + 'px)';
+              text.style.transform  = 'translateY(' + lerp(50, 0, pText)  + 'px)';
+            } else {
+              phone.style.transform = 'translateX(' + lerp(dir === 'left' ? -130 : 130, 0, pPhone) + 'px)';
+              text.style.transform  = 'translateX(' + lerp(dir === 'left' ?  110 : -110, 0, pText)  + 'px)';
+            }
+            phone.style.opacity = String(pPhone);
+            text.style.opacity  = String(pText);
+
+          } else if (t < exitStart) {
+            // Fully settled
+            phone.style.transform = 'none';
+            phone.style.opacity   = '1';
+            text.style.transform  = 'none';
+            text.style.opacity    = '1';
+
+          } else if (t < exitEnd) {
+            // Exiting upward
+            var p = easeInCubic(clamp((t - exitStart) / (exitEnd - exitStart), 0, 1));
+            var y = lerp(0, -70, p);
+            phone.style.transform = 'translateY(' + y + 'px)';
+            phone.style.opacity   = String(1 - p);
+            text.style.transform  = 'translateY(' + y + 'px)';
+            text.style.opacity    = String(1 - p);
+
+          } else {
+            // Gone
+            phone.style.transform = 'translateY(-70px)';
+            phone.style.opacity   = '0';
+            text.style.transform  = 'translateY(-70px)';
+            text.style.opacity    = '0';
+          }
+        });
+      }
+
+      window.addEventListener('scroll', function () {
+        if (!rafPending) { rafPending = true; requestAnimationFrame(update); }
+      }, { passive: true });
+
+      window.addEventListener('resize', update);
+      update();
+    })();
+  </script>
 
   <!-- Features -->
   <section class="features">
     <h2>How it works</h2>
-    <div class="features-grid">
-      <div class="feature-card">
-        <div class="feature-icon">1</div>
-        <h3>Set a goal</h3>
-        <p>Create goals like "100 Days of Code" or "Daily Workout" and choose how often you want to post.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">2</div>
-        <h3>Post your progress</h3>
-        <p>Snap a photo proving you showed up. Your friends see it in their feed for 24 hours.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">3</div>
-        <h3>Build your streak</h3>
-        <p>Every post extends your streak. Miss a day? Your friends will notice. Stay consistent and watch your streak grow.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">4</div>
-        <h3>Support each other</h3>
-        <p>React to friends' posts and keep each other motivated. Accountability works better together.</p>
-      </div>
-    </div>
+    <ol class="steps">
+      <li class="step">
+        <span class="step-num">01</span>
+        <div class="step-body">
+          <h3>Set a goal</h3>
+          <p>Create goals like "100 Days of Code" or "Daily Workout" and choose how often you want to post.</p>
+        </div>
+      </li>
+      <li class="step">
+        <span class="step-num">02</span>
+        <div class="step-body">
+          <h3>Post your progress</h3>
+          <p>Snap a photo proving you showed up. Your friends see it in their feed for 24 hours.</p>
+        </div>
+      </li>
+      <li class="step">
+        <span class="step-num">03</span>
+        <div class="step-body">
+          <h3>Build your streak</h3>
+          <p>Every post extends your streak. Miss a day and your friends will notice. Stay consistent and watch it grow.</p>
+        </div>
+      </li>
+      <li class="step">
+        <span class="step-num">04</span>
+        <div class="step-body">
+          <h3>Support each other</h3>
+          <p>React to friends' posts and keep each other motivated. Accountability works better together.</p>
+        </div>
+      </li>
+    </ol>
   </section>
 
   <!-- streakd+ -->
   <section class="plus-section">
-    <div class="plus-card">
-      <div class="plus-badge">streakd+</div>
+    <div class="plus-header">
+      <img src="assets/streakdplus.png" alt="streakd+" class="plus-badge-img">
       <h2>Level up your accountability</h2>
       <p>Unlock unlimited goals, goal archival, and more.</p>
-      <div class="plus-features">
-        <div class="plus-feature">
-          <span class="check">&#10003;</span>
-          <span>Unlimited active goals</span>
-        </div>
-        <div class="plus-feature">
-          <span class="check">&#10003;</span>
-          <span>Archive completed goals forever</span>
-        </div>
-        <div class="plus-feature">
-          <span class="check">&#10003;</span>
-          <span>Early access to new features</span>
-        </div>
+    </div>
+    <div class="plus-cols">
+      <div class="plus-col">
+        <h4>Unlimited active goals</h4>
+        <p>No cap on what you're working toward. Stack as many goals as you want.</p>
+      </div>
+      <div class="plus-col">
+        <h4>Archive completed goals</h4>
+        <p>Keep your history without the clutter. Archived goals stay on your profile forever.</p>
+      </div>
+      <div class="plus-col">
+        <h4>Early access</h4>
+        <p>Be first to try new features before they roll out to everyone else.</p>
       </div>
     </div>
   </section>

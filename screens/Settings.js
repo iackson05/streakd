@@ -49,33 +49,20 @@ export default function Settings({ navigation }) {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account and all your data. This action cannot be undone.',
+      'This will permanently delete your account and all associated data — including your goals, posts, images, friends, and settings. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete My Account',
           style: 'destructive',
-          onPress: () => {
-            Alert.alert(
-              'Are you sure?',
-              'All your goals, posts, friends, and images will be permanently deleted.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete My Account',
-                  style: 'destructive',
-                  onPress: async () => {
-                    try {
-                      await apiDelete('/users/me');
-                      await signOut();
-                    } catch (error) {
-                      console.error('Error deleting account:', error);
-                      Alert.alert('Error', 'Failed to delete account. Please try again.');
-                    }
-                  },
-                },
-              ]
-            );
+          onPress: async () => {
+            try {
+              await apiDelete('/users/me');
+              await signOut();
+            } catch (error) {
+              console.error('Error deleting account:', error);
+              Alert.alert('Error', 'Failed to delete account. Please try again.');
+            }
           },
         },
       ]

@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
   StatusBar,
   ActivityIndicator,
+  Linking,
   Alert,
 } from 'react-native';
 import { ArrowLeftIcon, CheckIcon, InfinityIcon, ArchiveIcon, BellIcon } from 'phosphor-react-native';
@@ -24,11 +26,6 @@ const FEATURES = [
     icon: ArchiveIcon,
     title: 'Goal Archival',
     description: 'Complete a goal and keep all your posts and memories forever. Free accounts delete everything.',
-  },
-  {
-    icon: CheckIcon,
-    title: 'Show Off Your Journey',
-    description: "Your archived goals live on your profile so friends can see how far you've come.",
   },
   {
     icon: BellIcon,
@@ -126,9 +123,11 @@ export default function Paywall({ navigation }) {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Hero */}
         <View style={styles.hero}>
-          <View style={styles.badgeContainer}>
-            <Text style={styles.badgeText}>streakd+</Text>
-          </View>
+          <Image
+            source={require('../assets/streakdplus.png')}
+            style={styles.heroLogo}
+            resizeMode="contain"
+          />
           <Text style={styles.heroTitle}>Level up your{'\n'}accountability</Text>
           <Text style={styles.heroSubtitle}>
             Unlock unlimited goals, goal archival, and more — for less than a coffee a month.
@@ -153,7 +152,7 @@ export default function Paywall({ navigation }) {
         {/* Comparison table */}
         <View style={styles.comparisonCard}>
           <View style={styles.comparisonRow}>
-            <Text style={styles.comparisonLabel} />
+            <Text style={styles.comparisonLabel}>Feature</Text>
             <Text style={styles.comparisonHeaderFree}>Free</Text>
             <Text style={styles.comparisonHeaderPlus}>streakd+</Text>
           </View>
@@ -162,7 +161,6 @@ export default function Paywall({ navigation }) {
           <ComparisonRow label="Goal Archival" free="✗" plus="✓" plusHighlight />
           <ComparisonRow label="Post History" free="Lost on delete" plus="Preserved forever" plusHighlight />
           <ComparisonRow label="Streak Tracking" free="✓" plus="✓" />
-          <ComparisonRow label="Friend Feed" free="✓" plus="✓" />
         </View>
 
         {/* Pricing + CTA */}
@@ -205,16 +203,14 @@ export default function Paywall({ navigation }) {
           </TouchableOpacity>
 
           <Text style={styles.legalText}>
-            Subscription auto-renews monthly. Cancel anytime in your App Store account settings.
-            Payment will be charged to your Apple ID account at confirmation of purchase.
-            {' '}
+            streakd+ is $3.99/month. Payment will be charged to your Apple ID at confirmation of purchase. Subscription automatically renews at $3.99/month unless cancelled at least 24 hours before the end of the current period. Manage or cancel in your Apple ID Account Settings.
           </Text>
           <View style={styles.legalLinks}>
-            <TouchableOpacity onPress={() => navigation.navigate('LegalText', { type: 'terms' })}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://streakd.social/terms.html')}>
               <Text style={styles.legalLinkText}>Terms of Service</Text>
             </TouchableOpacity>
             <Text style={styles.legalSeparator}>|</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('LegalText', { type: 'privacy' })}>
+            <TouchableOpacity onPress={() => Linking.openURL('https://streakd.social/privacy.html')}>
               <Text style={styles.legalLinkText}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
@@ -280,20 +276,10 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
     alignItems: 'center',
   },
-  badgeContainer: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
+  heroLogo: {
+    width: 160,
+    height: 44,
     marginBottom: 20,
-  },
-  badgeText: {
-    color: '#FF6B35',
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
   },
   heroTitle: {
     color: '#fff',
