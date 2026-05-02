@@ -1,0 +1,170 @@
+STREAKD iOS REWRITE — PROGRESS TRACKER
+=======================================
+Architecture: SwiftUI + MVVM
+iOS Target: 17+
+Backend: Same FastAPI at api.streakd.social (no changes needed)
+
+PHASE 1: FOUNDATION (COMPLETE)
+-------------------------------
+[x] Project structure created
+[x] Config.swift — API base URL, brand color
+[x] Models — User, Goal, Post, Friendship, AuthModels (all Codable, matching backend JSON)
+[x] KeychainHelper — secure token storage (replaces AsyncStorage)
+[x] APIClient — JWT HTTP client with auto-refresh on 401, multipart upload support
+[x] AuthService — signIn, signUp, signOut, restoreSession, deleteAccount
+[x] GoalService — CRUD, archive, streak increment
+[x] PostService — feed, goal posts, create (multipart), delete, reactions
+[x] UserService — search, profile, username, profile picture, notifications, friends, blocks, reports
+[x] AuthViewModel — login state, session restore, onboarding flag
+[x] FeedViewModel — posts + reactions, debounced fetching, optimistic updates
+[x] ProfileViewModel — goals, stats, optimistic updates
+[x] FriendsViewModel — friends list, pending requests, accept/reject
+[x] Utility: FormatTimestamp, BrandColors
+[x] Shared Styles: StreakdTextFieldStyle, BrandButtonStyle, InactiveButtonStyle, HeaderButtonStyle
+
+PHASE 2: SCREENS (COMPLETE)
+----------------------------
+[x] LoginView — email/password login, matches original dark theme
+[x] SignUpView — name/username/email/password signup with validation
+[x] ContentView — root auth routing (loading → onboarding → login → feed)
+[x] FeedView — posts list, pull-to-refresh, goal selector sheet, empty state, nav to create post
+[x] PostCardView — image, optimistic reaction toggle, delete own posts
+[x] CreatePostView — camera (UIImagePickerController) + PhotosPicker, image review, upload + streak increment
+[x] ProfileView — stats, goals list, create goal button, nav to edit/settings/goal feed
+[x] GoalFeedView — all posts for a goal, delete goal with confirmation
+[x] CreateGoalView — title, description, frequency slider, privacy picker
+[x] FriendsView — friends list, pending requests with accept/reject
+[x] AddFriendsView — search users by username, send friend requests
+[x] UserProfileView — view other user's profile, friendship actions, block/report
+[x] OnboardingView — 5-step flow: welcome → goal → friends → photo → notifications
+[x] SettingsView — notifications, paywall link, logout, delete account
+[x] EditProfileView — username editing with 400ms debounced availability check
+[x] NotificationSettingsView — toggle friend requests, reactions, streak reminders
+[x] PaywallView — features, comparison table, subscribe/restore (UI ready, RevenueCat TODO)
+[x] StreakdApp — app entry point with environment injection
+
+PUSH NOTIFICATIONS (COMPLETE)
+------------------------------
+[x] Backend: services/notifications.py rewritten to support BOTH APNs + Expo tokens
+    - Auto-detects token type (ExponentPushToken[...] = Expo, hex string = APNs)
+    - APNs uses token-based auth (.p8 key) with JWT + HTTP/2
+    - JWT is cached for 50 minutes (APNs tokens valid for 1 hour)
+    - Old send_expo_push() kept as alias — all existing callers work unchanged
+[x] Backend: config.py updated with APNS_KEY_ID, APNS_TEAM_ID, APNS_KEY_PATH, APNS_BUNDLE_ID, APNS_USE_SANDBOX
+[x] Backend: requirements.txt updated — httpx[http2], PyJWT[crypto] added
+[x] Swift: PushNotificationManager — requests permission, registers for APNs, converts
+    device token to hex, uploads to backend via PUT /users/push-token
+[x] Swift: AppDelegate — handles didRegisterForRemoteNotifications, foreground display, tap handling
+[x] Swift: StreakdApp wires AppDelegate via @UIApplicationDelegateAdaptor
+[x] Swift: OnboardingView notification step uses PushNotificationManager.requestPermission()
+
+PHASE 3: REMAINING INTEGRATION (TODO)
+---------------------------------------
+[ ] Create Xcode project — open Xcode → New Project → iOS App → SwiftUI
+      - Product name: Streakd
+      - Set bundle ID, deployment target iOS 17
+      - Add all Swift files from frontendnew/Streakd/ into the project
+      - Add logo.png and streakdplus.png to Assets.xcassets
+      - Add camera + photo library usage descriptions to Info.plist:
+        NSCameraUsageDescription = "Streakd needs camera access to take streak photos"
+        NSPhotoLibraryUsageDescription = "Streakd needs photo library access for posts and profile pictures"
+      - Enable Push Notifications capability in Signing & Capabilities
+[ ] Apple Developer setup for push notifications:
+      - Create an APNs key (.p8) in Apple Developer → Keys → Create Key → check "Apple Push Notifications service"
+      - Note the Key ID (10 chars) and download the .p8 file (only downloadable ONCE)
+      - Set these in backend/.env:
+        APNS_KEY_ID=<your-key-id>
+        APNS_TEAM_ID=<your-team-id>
+        APNS_KEY_PATH=/path/to/AuthKey_XXXXX.p8
+        APNS_BUNDLE_ID=com.yourname.streakd
+        APNS_USE_SANDBOX=true  (set false for production)
+[ ] RevenueCat Swift SDK — add via SPM, configure in StreakdApp.swift, wire up PaywallView
+[ ] Image caching — consider adding Kingfisher via SPM for better AsyncImage performance
+[ ] PostCardView user tap → navigate to UserProfileView (currently has onUserTap callback but not wired in FeedView)
+
+PHASE 4: POLISH (TODO)
+-----------------------
+[ ] App icon + launch screen in Xcode assets
+[ ] Haptic feedback on reactions
+[ ] Skeleton loading states (ShimmerView)
+[ ] Error toast/banner system (instead of print statements)
+[ ] Deep linking
+[ ] Accessibility labels
+[ ] iPad layout adaptations
+[ ] Swipe-to-delete on goals (ProfileView)
+[ ] Pull-to-refresh on ProfileView goals section
+[ ] Animate onboarding step transitions
+
+FILE INVENTORY (38 Swift files + PROGRESS.txt)
+--------------------------
+frontendnew/
+├── PROGRESS.txt
+└── Streakd/
+    ├── StreakdApp.swift
+    ├── AppDelegate.swift
+    ├── Config.swift
+    ├── Models/
+    │   ├── AuthModels.swift
+    │   ├── Friendship.swift
+    │   ├── Goal.swift
+    │   ├── Post.swift
+    │   └── User.swift
+    ├── Services/
+    │   ├── APIClient.swift
+    │   ├── AuthService.swift
+    │   ├── GoalService.swift
+    │   ├── KeychainHelper.swift
+    │   ├── PostService.swift
+    │   ├── PushNotificationManager.swift
+    │   └── UserService.swift
+    ├── ViewModels/
+    │   ├── AuthViewModel.swift
+    │   ├── FeedViewModel.swift
+    │   ├── FriendsViewModel.swift
+    │   └── ProfileViewModel.swift
+    ├── Views/
+    │   ├── ContentView.swift
+    │   ├── Auth/
+    │   │   ├── LoginView.swift
+    │   │   ├── SignUpView.swift
+    │   │   └── OnboardingView.swift
+    │   ├── Feed/
+    │   │   ├── FeedView.swift
+    │   │   ├── PostCardView.swift
+    │   │   └── CreatePostView.swift
+    │   ├── Goals/
+    │   │   ├── GoalFeedView.swift
+    │   │   └── CreateGoalView.swift
+    │   ├── Friends/
+    │   │   ├── FriendsView.swift
+    │   │   └── AddFriendsView.swift
+    │   ├── Profile/
+    │   │   ├── ProfileView.swift
+    │   │   └── UserProfileView.swift
+    │   └── Settings/
+    │       ├── SettingsView.swift
+    │       ├── EditProfileView.swift
+    │       ├── NotificationSettingsView.swift
+    │       └── PaywallView.swift
+    └── Utils/
+        ├── BrandColors.swift
+        └── FormatTimestamp.swift
+
+NOTES FOR NEXT SESSION
+-----------------------
+- ALL screens from the React Native app have been ported to SwiftUI
+- All service files are complete and match the backend API 1:1
+- The app uses @Observable (iOS 17+) instead of ObservableObject for cleaner code
+- Tokens are stored in Keychain (not UserDefaults) for security
+- No external dependencies yet — everything uses native URLSession + SwiftUI
+- Camera uses UIImagePickerController wrapped in UIViewControllerRepresentable
+- Photo picker uses native PhotosPicker (iOS 16+)
+- Dark theme throughout — black background with the #FF6B35 brand orange
+- To test: create Xcode project, add files, add logo/streakdplus assets, build and run
+- FeedView uses Image("logo") and PaywallView uses Image("streakdplus") — add to Assets.xcassets
+- RevenueCat is the only external dependency needed (for subscriptions)
+- The PostCardView onUserTap callback exists but FeedView doesn't navigate to UserProfileView yet — minor wiring task
+- Push notifications: backend supports BOTH Expo + APNs tokens simultaneously, so the React Native
+  app keeps working while you migrate users to the Swift app
+- APNs .p8 key is needed from Apple Developer account before push works — see setup steps above
+- Backend changes: services/notifications.py, config.py, requirements.txt (3 files modified)

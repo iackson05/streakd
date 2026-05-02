@@ -2,7 +2,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -10,6 +10,9 @@ from app.dependencies import get_current_user
 from app.models.notification import NotificationSettings
 from app.models.user import User
 from app.models.post import Post
+from app.models.goal import Goal
+from app.models.friendship import Friendship
+from app.models.block import Block
 from app.models.reaction import Reaction
 from app.schemas.reaction import ToggleReactionRequest, ToggleReactionResponse, UserReaction
 from app.services.auth import EMOJI_TO_COLUMN
@@ -37,6 +40,41 @@ async def toggle_reaction(
     post = post_result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+
+    # Authorize: user must be allowed to see the post (own post, or friend's
+    # non-private goal, with no block in either direction). Without this,
+    # anyone with a post UUID could react and trigger notifications.
+    if post.user_id != current_user.id:
+        # Block check (either direction)
+        block_check = await db.execute(
+            select(Block).where(
+                or_(
+                    and_(Block.blocker_id == current_user.id, Block.blocked_id == post.user_id),
+                    and_(Block.blocker_id == post.user_id, Block.blocked_id == current_user.id),
+                )
+            )
+        )
+        if block_check.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        # Goal must be visible (privacy != "private")
+        goal_result = await db.execute(select(Goal).where(Goal.id == post.goal_id))
+        goal = goal_result.scalar_one_or_none()
+        if not goal or goal.privacy == "private":
+            raise HTTPException(status_code=404, detail="Post not found")
+
+        # Friendship required for "friends" privacy
+        friend_check = await db.execute(
+            select(Friendship).where(
+                Friendship.status == "accepted",
+                or_(
+                    and_(Friendship.user_id == current_user.id, Friendship.friend_id == post.user_id),
+                    and_(Friendship.user_id == post.user_id, Friendship.friend_id == current_user.id),
+                ),
+            )
+        )
+        if not friend_check.scalar_one_or_none():
+            raise HTTPException(status_code=403, detail="Not authorized to react to this post")
 
     # Check if user already reacted
     existing_result = await db.execute(

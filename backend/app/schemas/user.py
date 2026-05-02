@@ -8,7 +8,9 @@ class UserProfile(BaseModel):
     id: uuid.UUID
     username: str
     name: str | None = None
-    email: str
+    # Email is only populated when the requester is the profile owner.
+    # Returning email for arbitrary users would leak PII.
+    email: str | None = None
     profile_picture_url: str | None
     created_at: datetime
     friend_count: int = 0

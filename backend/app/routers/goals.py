@@ -13,6 +13,7 @@ from app.models.user import User
 from app.models.goal import Goal
 from app.models.post import Post
 from app.models.friendship import Friendship
+from app.models.block import Block
 from app.schemas.goal import GoalCreate, GoalResponse
 from app.services.storage import delete_file
 from app.services.revenuecat import is_subscribed
@@ -116,6 +117,18 @@ async def complete_goal(
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
+    # Free users: delete posts and R2 images to save storage
+    if not current_user.is_subscribed:
+        posts_result = await db.execute(select(Post).where(Post.goal_id == goal_id))
+        posts = posts_result.scalars().all()
+        for post in posts:
+            if post.image_url:
+                try:
+                    await delete_file(post.image_url)
+                except Exception as e:
+                    logger.error(f"Failed to delete R2 file {post.image_url} during goal complete: {e}")
+            await db.delete(post)
+
     goal.completed = True
     await db.commit()
     await db.refresh(goal)
@@ -157,13 +170,47 @@ async def increment_streak(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    result = await db.execute(select(Goal).where(Goal.id == goal_id, Goal.user_id == current_user.id))
+    """Increment a goal's streak. Requires:
+      - Goal ownership (verified)
+      - At least one post on this goal that's newer than `last_posted_at`
+        (prevents replaying the endpoint to inflate the streak without posting).
+
+    The frontend calls this right after creating a post; this guard ensures
+    the call corresponds to a real post.
+    """
+    from datetime import datetime, timezone
+
+    result = await db.execute(
+        select(Goal).where(Goal.id == goal_id, Goal.user_id == current_user.id).with_for_update()
+    )
     goal = result.scalar_one_or_none()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
 
+    # Find the most recent post on this goal — must exist and be newer than last_posted_at
+    latest_post_result = await db.execute(
+        select(Post.created_at)
+        .where(Post.goal_id == goal_id, Post.user_id == current_user.id)
+        .order_by(Post.created_at.desc())
+        .limit(1)
+    )
+    latest_post_at = latest_post_result.scalar_one_or_none()
+    if latest_post_at is None:
+        raise HTTPException(status_code=400, detail="No posts on this goal yet")
+
+    # Normalize to aware UTC for comparison
+    if latest_post_at.tzinfo is None:
+        latest_post_at = latest_post_at.replace(tzinfo=timezone.utc)
+
+    last_posted_at = goal.last_posted_at
+    if last_posted_at is not None and last_posted_at.tzinfo is None:
+        last_posted_at = last_posted_at.replace(tzinfo=timezone.utc)
+
+    if last_posted_at is not None and latest_post_at <= last_posted_at:
+        # Already counted this post toward the streak — no-op success
+        return goal
+
     goal.streak_count += 1
-    from datetime import datetime, timezone
     goal.last_posted_at = datetime.now(timezone.utc)
     await db.commit()
     await db.refresh(goal)
@@ -177,6 +224,18 @@ async def get_user_goals_public(
     current_user: User = Depends(get_current_user),
 ):
     """Get a friend's non-private, non-completed goals."""
+    # Block check (either direction) — return 404 to avoid leaking the block
+    block_check = await db.execute(
+        select(Block).where(
+            or_(
+                and_(Block.blocker_id == current_user.id, Block.blocked_id == user_id),
+                and_(Block.blocker_id == user_id, Block.blocked_id == current_user.id),
+            )
+        )
+    )
+    if block_check.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="User not found")
+
     # Verify friendship exists
     friend_check = await db.execute(
         select(Friendship).where(

@@ -9,6 +9,7 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User
 from app.models.friendship import Friendship
+from app.models.block import Block
 from app.schemas.friendship import FriendRequestCreate, FriendshipResponse, FriendAccept, FriendReject
 from app.limiter import limiter
 from app.services.notifications import send_expo_push
@@ -96,6 +97,19 @@ async def send_friend_request(
 ):
     if body.friend_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot friend yourself")
+
+    # Block check (either direction): blocked users cannot send friend requests
+    block_check = await db.execute(
+        select(Block).where(
+            or_(
+                and_(Block.blocker_id == current_user.id, Block.blocked_id == body.friend_id),
+                and_(Block.blocker_id == body.friend_id, Block.blocked_id == current_user.id),
+            )
+        )
+    )
+    if block_check.scalar_one_or_none():
+        # Generic 404 — don't reveal that a block exists
+        raise HTTPException(status_code=404, detail="User not found")
 
     # Check if friendship already exists in either direction
     existing = await db.execute(

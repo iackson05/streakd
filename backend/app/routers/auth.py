@@ -1,7 +1,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -19,20 +19,24 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/hour")
 async def signup(request: Request, body: SignUpRequest, db: AsyncSession = Depends(get_db)):
-    # Check existing email
-    result = await db.execute(select(User).where(User.email == body.email))
+    # Normalize email and username before checking/storing
+    email = body.email.strip().lower()
+    username = body.username.strip()
+
+    # Case-insensitive email check
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check existing username
-    result = await db.execute(select(User).where(User.username == body.username))
+    # Case-insensitive username check
+    result = await db.execute(select(User).where(func.lower(User.username) == username.lower()))
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already taken")
 
     user = User(
         id=uuid.uuid4(),
-        email=body.email,
-        username=body.username,
+        email=email,
+        username=username,
         name=body.name,
         password_hash=hash_password(body.password),
     )
@@ -54,7 +58,8 @@ async def signup(request: Request, body: SignUpRequest, db: AsyncSession = Depen
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/15minutes")
 async def login(request: Request, body: LoginRequest, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(User).where(User.email == body.email))
+    email = body.email.strip().lower()
+    result = await db.execute(select(User).where(func.lower(User.email) == email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
@@ -94,4 +99,5 @@ async def me(current_user: User = Depends(get_current_user)):
         email=current_user.email,
         profile_picture_url=current_user.profile_picture_url,
         created_at=current_user.created_at,
+        is_subscribed=current_user.is_subscribed,
     )

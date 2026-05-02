@@ -30,9 +30,16 @@ MAX_PROFILE_PIC_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
 def _compress_profile_picture(data: bytes) -> bytes:
-    img = Image.open(io.BytesIO(data))
+    # Cap decoded pixel count to mitigate decompression-bomb attacks
+    Image.MAX_IMAGE_PIXELS = 50_000_000  # ~50 megapixels
 
-    # Convert to RGB (handles PNG with alpha, HEIC, etc.)
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or corrupt image")
+
+    # Convert to RGB (handles PNG with alpha, HEIC, etc.) — also strips EXIF
     if img.mode != "RGB":
         img = img.convert("RGB")
 
@@ -67,6 +74,19 @@ async def get_user_profile(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Block check: don't expose profile to/from blocked users
+    if user_id != current_user.id:
+        block_result = await db.execute(
+            select(Block).where(
+                or_(
+                    and_(Block.blocker_id == current_user.id, Block.blocked_id == user_id),
+                    and_(Block.blocker_id == user_id, Block.blocked_id == current_user.id),
+                )
+            )
+        )
+        if block_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="User not found")
+
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -84,11 +104,13 @@ async def get_user_profile(
     )
     completed_goals_count = completed_goals_result.scalar() or 0
 
+    is_self = user.id == current_user.id
+
     return UserProfile(
         id=user.id,
         username=user.username,
         name=user.name,
-        email=user.email,
+        email=user.email if is_self else None,
         profile_picture_url=user.profile_picture_url,
         created_at=user.created_at,
         friend_count=friend_count,
@@ -148,9 +170,11 @@ async def update_username(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Check availability
+    # Case-insensitive availability check (matches signup behavior)
     result = await db.execute(
-        select(User).where(User.username == body.username).where(User.id != current_user.id)
+        select(User)
+        .where(func.lower(User.username) == body.username.lower())
+        .where(User.id != current_user.id)
     )
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already taken")
@@ -172,13 +196,21 @@ async def update_name(
 
 
 @router.get("/check-username/{username}")
+@limiter.limit("60/hour")
 async def check_username(
+    request: Request,
     username: str,
     db: AsyncSession = Depends(get_db),
 ):
-    """Public endpoint — no auth required so signup flow can check availability."""
+    """Public endpoint — no auth required so signup flow can check availability.
+    Rate-limited per IP to mitigate username enumeration. Comparison is case-insensitive.
+    """
+    # Validate format before hitting DB to avoid wasting queries on garbage
+    import re
+    if not re.fullmatch(r"[a-zA-Z0-9_]{3,50}", username):
+        return {"available": False}
     result = await db.execute(
-        select(User).where(User.username == username)
+        select(User).where(func.lower(User.username) == username.lower())
     )
     return {"available": result.scalar_one_or_none() is None}
 

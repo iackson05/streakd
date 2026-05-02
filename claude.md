@@ -339,20 +339,8 @@ streakd/
             └── revenuecat.py    # RevenueCat subscription verification
 ```
 
-## Backend Environment Variables (`backend/.env`)
-```
-DATABASE_URL=postgresql+asyncpg://streakd:streakd_password@db:5432/streakd
-JWT_SECRET_KEY=change-me-to-a-random-secret
-INTERNAL_API_SECRET=change-me-to-a-random-secret
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET_NAME=streakd
-R2_PUBLIC_URL=
-CORS_ORIGINS=["*"]
-EXPO_ACCESS_TOKEN=
-REVENUECAT_API_KEY=
-```
+## Backend Environment Variables
+Production secrets are configured on the server's `.env` file (not checked into source control). See `backend/app/config.py` for the full list of required environment variables.
 
 ## Subscription Model (RevenueCat)
 - **Free tier**: 2 active goals, delete only
@@ -392,9 +380,9 @@ REVENUECAT_API_KEY=
 2. ~~**No Privacy Policy or Terms of Service**~~ — FIXED: In-app LegalText screen + hosted live at streakd.social/privacy.html and streakd.social/terms.html.
 3. ~~**No content moderation**~~ — FIXED: Added block/report system with `blocks` and `reports` tables, `/blocks/` router, feed/search filtering, UserProfile screen with report/block actions.
 4. **RevenueCat production key** — `subscription.js` uses test key. Requires Apple Developer account first: create subscription product in App Store Connect, add shared secret to RevenueCat, link product to `streakd+` entitlement and `default` offering, then copy production `appl_...` key.
-5. **Bundle ID placeholder** — `app.json` still uses `com.yourname.streakd`. Requires Apple Developer account to register real bundle ID.
+5. ~~**Bundle ID placeholder**~~ — FIXED: Bundle ID set to `social.streakd.app` across app.json, Info.plist, project.pbxproj, and backend config.
 6. ~~**Backend HTTPS**~~ — FIXED: `api.streakd.social` is live with nginx + Let's Encrypt, proxying to port 8000. `app.json` updated to use it.
-7. **Missing photo library permission** — `app.json` needs `NSPhotoLibraryUsageDescription` string added under `ios.infoPlist`. App accesses photo library for post images and profile pictures; without this string iOS will crash.
+7. ~~**Missing photo library permission**~~ — FIXED: `NSPhotoLibraryUsageDescription` is set in `ios/streakd/Info.plist`.
 8. **APNs certificate** — Push notifications require an APNs key configured in Apple Developer account and linked in EAS.
 9. **App Store Connect metadata** — Requires Apple Developer account: app listing, screenshots (have website assets), description, keywords, age rating, category.
 
@@ -403,7 +391,7 @@ REVENUECAT_API_KEY=
 6. ~~**Hardcoded default secrets**~~ — FIXED: `config.py` now logs warnings at startup for default secrets. Must set real values in `.env` for production.
 7. ~~**Hardcoded API URL**~~ — FIXED: `api.js` now reads from `app.json > extra > apiUrl` via expo-constants. Set production URL in `app.json` before deployment.
 8. ~~**No password requirements**~~ — FIXED: `schemas/auth.py` now requires min 8 chars, max 128.
-9. **No rate limiting** — No protection against brute-force login or spam signups.
+9. ~~**No rate limiting**~~ — FIXED: SlowAPI rate limiting added — signup `5/hour`, login `10/15min`, refresh `30/hour`, reports `10/hour`.
 10. ~~**No input length validation in Pydantic schemas**~~ — FIXED: Added `Field` constraints matching DB column lengths across auth, user, goal, and post schemas.
 
 ### Backend Bugs

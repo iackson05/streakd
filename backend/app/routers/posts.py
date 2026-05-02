@@ -1,8 +1,10 @@
+import io
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form, status
+from PIL import Image
 from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +25,34 @@ router = APIRouter(prefix="/posts", tags=["posts"])
 
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
+MAX_IMAGE_DIMENSION = 4096  # Resize anything larger to limit decode cost
+MAX_CAPTION_LENGTH = 1000
+
+
+def _process_post_image(data: bytes) -> tuple[bytes, str]:
+    """Decode + sanitize + bound the post image. Returns (jpeg_bytes, content_type).
+    Strips EXIF (location data) and caps dimensions to mitigate decompression bombs.
+    """
+    # Pillow's MAX_IMAGE_PIXELS guard catches absurd images
+    Image.MAX_IMAGE_PIXELS = 50_000_000  # ~50 megapixels
+    try:
+        img = Image.open(io.BytesIO(data))
+        img.load()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or corrupt image")
+
+    if img.mode != "RGB":
+        img = img.convert("RGB")
+
+    # Cap dimensions
+    w, h = img.size
+    if max(w, h) > MAX_IMAGE_DIMENSION:
+        scale = MAX_IMAGE_DIMENSION / max(w, h)
+        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+    out = io.BytesIO()
+    img.save(out, format="JPEG", quality=85, optimize=True)
+    return out.getvalue(), "image/jpeg"
 
 
 def _post_to_response(post: Post, user: User, goal: Goal) -> PostResponse:
@@ -100,10 +130,14 @@ async def get_feed_posts(
     )
     rows = posts_result.all()
 
-    # Filter out private goals from friends (show all own posts)
+    # Filter out private goals from friends (show all own posts).
+    # Also hide posts on archived goals from other users — keeps the feed clean
+    # when a friend archives a goal.
     result = []
     for post, user, goal in rows:
-        if post.user_id == current_user.id or goal.privacy != "private":
+        if post.user_id == current_user.id:
+            result.append(_post_to_response(post, user, goal))
+        elif goal.privacy != "private" and not goal.archived:
             result.append(_post_to_response(post, user, goal))
 
     return result
@@ -138,6 +172,18 @@ async def get_goal_posts(
 
     # Owner can always see their own goal posts
     if goal.user_id != current_user.id:
+        # Block check (either direction)
+        block_check = await db.execute(
+            select(Block).where(
+                or_(
+                    and_(Block.blocker_id == current_user.id, Block.blocked_id == goal.user_id),
+                    and_(Block.blocker_id == goal.user_id, Block.blocked_id == current_user.id),
+                )
+            )
+        )
+        if block_check.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Goal not found")
+
         # Private goals are only visible to the owner
         if goal.privacy == "private":
             raise HTTPException(status_code=403, detail="This goal is private")
@@ -175,13 +221,19 @@ async def create_post(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Verify goal ownership
+    # Verify goal ownership AND that it's still active
     goal_result = await db.execute(
         select(Goal).where(Goal.id == goal_id, Goal.user_id == current_user.id)
     )
     goal = goal_result.scalar_one_or_none()
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
+    if goal.completed or goal.archived:
+        raise HTTPException(status_code=400, detail="Cannot post to a completed or archived goal")
+
+    # Caption length validation (Form fields aren't validated by Pydantic)
+    if caption is not None and len(caption) > MAX_CAPTION_LENGTH:
+        raise HTTPException(status_code=400, detail=f"Caption too long. Max {MAX_CAPTION_LENGTH} characters")
 
     image_url = None
     if image:
@@ -195,7 +247,9 @@ async def create_post(
         if len(contents) > MAX_IMAGE_SIZE:
             raise HTTPException(status_code=413, detail="Image too large. Maximum size is 10 MB")
 
-        image_url = await upload_file(contents, image.content_type or "image/jpeg", folder="posts")
+        # Decode, strip EXIF, cap dimensions, re-encode as JPEG
+        processed_bytes, processed_ct = _process_post_image(contents)
+        image_url = await upload_file(processed_bytes, processed_ct, folder="posts")
 
     post = Post(
         user_id=current_user.id,
