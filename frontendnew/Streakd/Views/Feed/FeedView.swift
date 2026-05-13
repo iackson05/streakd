@@ -8,6 +8,7 @@ struct FeedView: View {
     @State private var loadingGoals = false
     @State private var selectedGoalForPost: Goal?
     @State private var showNoGoalsAlert = false
+    @State private var selectedUserForProfile: (id: String, username: String)?
 
     var body: some View {
         NavigationStack {
@@ -43,6 +44,10 @@ struct FeedView: View {
                                         post: post,
                                         initialReaction: feedVM.userReactions[post.id],
                                         currentUserId: auth.user?.id ?? "",
+                                        onUserTap: { userId, username in
+                                            guard userId != auth.user?.id else { return }
+                                            selectedUserForProfile = (userId, username)
+                                        },
                                         onDelete: { postId in
                                             feedVM.removePost(postId)
                                         }
@@ -144,6 +149,14 @@ struct FeedView: View {
             }
             .navigationDestination(item: $selectedGoalForPost) { goal in
                 CreatePostView(goalId: goal.id)
+            }
+            .sheet(isPresented: Binding(
+                get: { selectedUserForProfile != nil },
+                set: { if !$0 { selectedUserForProfile = nil } }
+            )) {
+                if let user = selectedUserForProfile {
+                    UserProfileSheet(userId: user.id, username: user.username)
+                }
             }
             .alert("No Goals", isPresented: $showNoGoalsAlert) {
                 Button("OK") {}

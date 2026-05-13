@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct UserProfileView: View {
+struct UserProfileSheet: View {
     let userId: String
     let username: String
     var showStats: Bool = true
@@ -20,93 +20,94 @@ struct UserProfileView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            if isLoading {
-                ProgressView().tint(.white)
-            } else if let profile {
-                ScrollView {
-                    VStack(spacing: 0) {
-                        // Profile Card
-                        VStack(spacing: 16) {
-                            AsyncImage(url: URL(string: profile.profilePictureUrl ?? "")) { image in
-                                image.resizable().scaledToFill()
-                            } placeholder: {
-                                Circle().fill(Color.cardBackground)
-                                    .overlay {
-                                        Image(systemName: "person.fill")
-                                            .font(.largeTitle)
-                                            .foregroundStyle(.white.opacity(0.3))
-                                    }
-                            }
-                            .frame(width: 96, height: 96)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 2))
-
-                            VStack(spacing: 4) {
-                                if let name = profile.name, !name.isEmpty {
-                                    Text(name)
-                                        .font(.title3).fontWeight(.semibold)
-                                        .foregroundStyle(profile.isSubscribed ? Color.brand : .white)
+                if isLoading {
+                    ProgressView().tint(.white)
+                } else if let profile {
+                    VStack(spacing: 20) {
+                        // Profile picture
+                        AsyncImage(url: URL(string: profile.profilePictureUrl ?? "")) { image in
+                            image.resizable().scaledToFill()
+                        } placeholder: {
+                            Circle().fill(Color.cardBackground)
+                                .overlay {
+                                    Image(systemName: "person.fill")
+                                        .font(.largeTitle)
+                                        .foregroundStyle(.white.opacity(0.3))
                                 }
-                                Text("@\(profile.username)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(
-                                        profile.name != nil
-                                            ? (profile.isSubscribed ? Color.brand : .white.opacity(0.5))
-                                            : (profile.isSubscribed ? Color.brand : .white)
-                                    )
-                                    .fontWeight(profile.name == nil ? .semibold : .regular)
-                            }
-
-                            if showStats {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "person.2")
-                                        .font(.caption2)
-                                        .foregroundStyle(.white.opacity(0.5))
-                                    Text("\(profile.friendCount)")
-                                        .font(.body).fontWeight(.semibold).foregroundStyle(.white)
-                                    Text("Friends")
-                                        .font(.caption).foregroundStyle(.white.opacity(0.4))
-                                }
-                            }
-
-                            // Friend action button
-                            friendButton
                         }
-                        .padding(24)
-                        .frame(maxWidth: .infinity)
-                        .background(Color(white: 0.04))
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.cardBorder, lineWidth: 1)
-                        )
-                        .padding(16)
+                        .frame(width: 80, height: 80)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.white.opacity(0.2), lineWidth: 2))
+
+                        // Name and username
+                        VStack(spacing: 4) {
+                            if let name = profile.name, !name.isEmpty {
+                                Text(name)
+                                    .font(.title3).fontWeight(.semibold)
+                                    .foregroundStyle(profile.isSubscribed ? Color.brand : .white)
+                            }
+                            Text("@\(profile.username)")
+                                .font(.subheadline)
+                                .foregroundStyle(
+                                    profile.name != nil
+                                        ? (profile.isSubscribed ? Color.brand : .white.opacity(0.5))
+                                        : (profile.isSubscribed ? Color.brand : .white)
+                                )
+                                .fontWeight(profile.name == nil ? .semibold : .regular)
+                        }
+
+                        // Stats
+                        if showStats {
+                            HStack(spacing: 4) {
+                                Image(systemName: "person.2")
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.5))
+                                Text("\(profile.friendCount)")
+                                    .font(.body).fontWeight(.semibold).foregroundStyle(.white)
+                                Text("Friends")
+                                    .font(.caption).foregroundStyle(.white.opacity(0.4))
+                            }
+                        }
+
+                        // Friend action button
+                        friendButton
+                            .padding(.horizontal, 24)
+
+                        Spacer()
                     }
-                    .padding(.top, 16)
-                }
-            } else {
-                Text("User not found")
-                    .foregroundStyle(.white.opacity(0.5))
-            }
-        }
-        .navigationTitle("@\(username)")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.black, for: .navigationBar)
-        .toolbarBackground(.visible, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Menu {
-                    Button("Report User") { showReportSheet = true }
-                    Button("Block User", role: .destructive) { blockUser() }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundStyle(.white.opacity(0.7))
+                    .padding(.top, 32)
+                } else {
+                    Text("User not found")
+                        .foregroundStyle(.white.opacity(0.5))
                 }
             }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Report User") { showReportSheet = true }
+                        Button("Block User", role: .destructive) { blockUser() }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+            }
+            .toolbarBackground(.black, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
         }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .presentationBackground(.black)
         .confirmationDialog("Report User", isPresented: $showReportSheet) {
             Button("Inappropriate Content") { submitReport("inappropriate") }
             Button("Spam") { submitReport("spam") }
@@ -198,9 +199,6 @@ struct UserProfileView: View {
             let (p, friendships) = try await (profileResult, friendshipsResult)
             profile = p
 
-            // Don't compute a friendship status when viewing your own profile —
-            // the friendships list contains other people, and matching by
-            // userId/friendId could accidentally pick one up.
             guard userId != auth.user?.id else {
                 isLoading = false
                 return

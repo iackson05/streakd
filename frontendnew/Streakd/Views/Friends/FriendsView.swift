@@ -3,6 +3,7 @@ import SwiftUI
 struct FriendsView: View {
     @Environment(AuthViewModel.self) private var auth
     @Environment(FriendsViewModel.self) private var friendsVM
+    @State private var selectedUser: (id: String, username: String)?
 
     var body: some View {
         ZStack {
@@ -54,6 +55,9 @@ struct FriendsView: View {
                         } else {
                             ForEach(friendsVM.friends) { friend in
                                 friendRow(friend)
+                                    .onTapGesture {
+                                        selectedUser = (friend.id, friend.username)
+                                    }
                             }
                         }
                     }
@@ -68,6 +72,14 @@ struct FriendsView: View {
         .task {
             if let userId = auth.user?.id {
                 await friendsVM.loadFriends(currentUserId: userId)
+            }
+        }
+        .sheet(isPresented: Binding(
+            get: { selectedUser != nil },
+            set: { if !$0 { selectedUser = nil } }
+        )) {
+            if let user = selectedUser {
+                UserProfileSheet(userId: user.id, username: user.username)
             }
         }
     }
@@ -107,18 +119,23 @@ struct FriendsView: View {
     @ViewBuilder
     private func friendRequestRow(_ request: PendingRequest) -> some View {
         HStack(spacing: 12) {
-            AsyncImage(url: URL(string: request.profilePictureUrl ?? "")) { image in
-                image.resizable().scaledToFill()
-            } placeholder: {
-                Circle().fill(Color.cardBackground)
-            }
-            .frame(width: 44, height: 44)
-            .clipShape(Circle())
+            HStack(spacing: 12) {
+                AsyncImage(url: URL(string: request.profilePictureUrl ?? "")) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Circle().fill(Color.cardBackground)
+                }
+                .frame(width: 44, height: 44)
+                .clipShape(Circle())
 
-            Text(request.username)
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundStyle(.white)
+                Text(request.username)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundStyle(.white)
+            }
+            .onTapGesture {
+                selectedUser = (request.senderId, request.username)
+            }
 
             Spacer()
 

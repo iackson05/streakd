@@ -6,6 +6,7 @@ struct AddFriendsView: View {
     @State private var isSearching = false
     @State private var sentRequests: Set<String> = []
     @State private var searchDebounce: Task<Void, Never>?
+    @State private var selectedUser: (id: String, username: String)?
 
     var body: some View {
         ZStack {
@@ -42,25 +43,30 @@ struct AddFriendsView: View {
                     LazyVStack(spacing: 8) {
                         ForEach(searchResults) { user in
                             HStack(spacing: 12) {
-                                AsyncImage(url: URL(string: user.profilePictureUrl ?? "")) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    Circle().fill(Color.cardBackground)
-                                }
-                                .frame(width: 44, height: 44)
-                                .clipShape(Circle())
-
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(user.username)
-                                        .font(.body)
-                                        .fontWeight(.medium)
-                                        .foregroundStyle(.white)
-
-                                    if let name = user.name, !name.isEmpty {
-                                        Text(name)
-                                            .font(.caption)
-                                            .foregroundStyle(.white.opacity(0.5))
+                                HStack(spacing: 12) {
+                                    AsyncImage(url: URL(string: user.profilePictureUrl ?? "")) { image in
+                                        image.resizable().scaledToFill()
+                                    } placeholder: {
+                                        Circle().fill(Color.cardBackground)
                                     }
+                                    .frame(width: 44, height: 44)
+                                    .clipShape(Circle())
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(user.username)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                            .foregroundStyle(.white)
+
+                                        if let name = user.name, !name.isEmpty {
+                                            Text(name)
+                                                .font(.caption)
+                                                .foregroundStyle(.white.opacity(0.5))
+                                        }
+                                    }
+                                }
+                                .onTapGesture {
+                                    selectedUser = (user.id, user.username)
                                 }
 
                                 Spacer()
@@ -102,6 +108,14 @@ struct AddFriendsView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.black, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
+        .sheet(isPresented: Binding(
+            get: { selectedUser != nil },
+            set: { if !$0 { selectedUser = nil } }
+        )) {
+            if let user = selectedUser {
+                UserProfileSheet(userId: user.id, username: user.username, showStats: false)
+            }
+        }
     }
 
     private func search(_ query: String) async {
