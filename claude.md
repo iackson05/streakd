@@ -43,6 +43,16 @@ React Native mobile app for goal accountability with friends. Users create goals
 - push_token (text)
 - push_notifications_enabled (boolean)
 - is_subscribed (boolean, default false)
+- email_verified (boolean, default false)
+- created_at (timestamp)
+
+### verification_codes
+- id (uuid, pk)
+- user_id (uuid, fk → users, cascade delete)
+- code (string, 6 digits)
+- type (string: 'email_verification', 'password_reset')
+- used (boolean, default false)
+- expires_at (timestamp)
 - created_at (timestamp)
 
 ### goals
@@ -115,7 +125,11 @@ React Native mobile app for goal accountability with friends. Users create goals
 - `POST /signup` — Register user, auto-creates notification_settings row
 - `POST /login` — Login, returns access + refresh tokens
 - `POST /refresh` — Refresh access token
-- `GET /me` — Get current user profile from JWT
+- `GET /me` — Get current user profile from JWT (includes email_verified)
+- `POST /verify-email` — Verify email with 6-digit code (requires auth)
+- `POST /resend-verification` — Resend verification code (requires auth, 3/hour)
+- `POST /forgot-password` — Send password reset code to email (unauthenticated)
+- `POST /reset-password` — Reset password with code + new password (unauthenticated)
 
 ### Users (`/users`)
 - `GET /profile/{user_id}` — Get profile with friend count
@@ -218,6 +232,9 @@ State: `isSubscribed`, `loading`
 | Paywall.js | Subscription purchase screen (RevenueCat) |
 | LegalText.js | Privacy Policy / Terms of Service viewer |
 | UserProfile.js | View other user's profile, add/block/report, view friend goals |
+| EmailVerification.js | 6-digit code entry after signup/login for unverified users |
+| ForgotPassword.js | Enter email to receive password reset code |
+| ResetPassword.js | Enter reset code + new password |
 | NotificationsSettings.js | Toggle: friend requests, reactions, streak reminders |
 
 ## Key Architecture Patterns
@@ -228,6 +245,23 @@ State: `isSubscribed`, `loading`
 3. All requests include `Authorization: Bearer <access_token>`
 4. On 401: auto-refresh, retry once; if refresh fails, sign out
 5. Tokens restored from AsyncStorage on app launch
+6. On signup: verification code emailed via Resend → user blocked at EmailVerification screen until verified
+7. On login with unverified email: same EmailVerification gate
+8. Protected endpoints return 403 for unverified users (via `get_verified_user` dependency)
+
+### Email Verification Flow
+1. Signup creates user with `email_verified=false`, generates 6-digit code, emails via Resend
+2. Frontend detects `needsVerification` → shows EmailVerification screen (locked, can't navigate away)
+3. User enters code → `POST /auth/verify-email` → marks user verified
+4. `refreshProfile()` updates state → navigator switches to Onboarding/Feed
+5. Codes expire in 10 minutes; old codes invalidated on resend
+
+### Password Reset Flow
+1. Login screen → "Forgot password?" → ForgotPassword screen
+2. User enters email → `POST /auth/forgot-password` → backend sends code (doesn't reveal if email exists)
+3. Navigate to ResetPassword screen → user enters code + new password
+4. `POST /auth/reset-password` → verifies code, updates password hash
+5. Navigate to Login with success message
 
 ### Image Storage (Cloudflare R2)
 - Frontend sends image as `multipart/form-data` to backend
@@ -297,6 +331,9 @@ streakd/
 │   ├── EditProfile.js
 │   ├── Paywall.js
 │   ├── LegalText.js             # Privacy Policy / Terms of Service viewer
+│   ├── EmailVerification.js
+│   ├── ForgotPassword.js
+│   ├── ResetPassword.js
 │   └── NotificationsSettings.js
 │
 ├── utils/
@@ -329,18 +366,19 @@ streakd/
         ├── config.py            # Settings (JWT, R2, DB, CORS)
         ├── database.py          # SQLAlchemy async engine + session
         ├── dependencies.py      # JWT auth dependency injection
-        ├── models/              # SQLAlchemy ORM models
+        ├── models/              # SQLAlchemy ORM models (includes verification_code.py)
         ├── schemas/             # Pydantic request/response schemas
         ├── routers/             # auth, users, goals, posts, reactions, friends, notifications
         └── services/
             ├── auth.py          # JWT creation/verification, password hashing
             ├── storage.py       # R2 upload/delete helpers
             ├── notifications.py # Expo push notification sending
-            └── revenuecat.py    # RevenueCat subscription verification
+            ├── revenuecat.py    # RevenueCat subscription verification
+            └── email.py         # Resend email service (verification + password reset)
 ```
 
 ## Backend Environment Variables
-Production secrets are configured on the server's `.env` file (not checked into source control). See `backend/app/config.py` for the full list of required environment variables.
+Production secrets are configured on the server's `.env` file (not checked into source control). See `backend/app/config.py` for the full list of required environment variables. Includes `RESEND_API_KEY` and `EMAIL_FROM` for transactional email via Resend.
 
 ## Subscription Model (RevenueCat)
 - **Free tier**: 2 active goals, delete only
@@ -366,6 +404,8 @@ Production secrets are configured on the server's `.env` file (not checked into 
 - ✅ User onboarding flow
 - ✅ Subscription/paywall (RevenueCat)
 - ✅ Settings screen (notifications, account management)
+- ✅ Email verification on signup (Resend + 6-digit code, blocks app until verified)
+- ✅ Password reset flow (forgot password → email code → reset)
 - ⏳ Streak reset on missed deadline
 - ✅ In-app account deletion (`DELETE /users/me` + Settings.js flow)
 - ✅ Privacy Policy / Terms of Service (in-app via LegalText screen; live at streakd.social/privacy.html and streakd.social/terms.html)

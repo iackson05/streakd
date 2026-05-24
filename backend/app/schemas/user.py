@@ -17,6 +17,7 @@ class UserProfile(BaseModel):
     post_count: int = 0
     completed_goals_count: int = 0
     is_subscribed: bool = False
+    email_verified: bool = False
 
     model_config = {"from_attributes": True}
 

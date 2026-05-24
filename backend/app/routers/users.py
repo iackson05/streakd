@@ -8,7 +8,7 @@ from sqlalchemy import select, func, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_verified_user
 from app.models.user import User
 from app.models.post import Post
 from app.models.goal import Goal
@@ -72,7 +72,7 @@ async def _get_friend_count(db: AsyncSession, user_id: uuid.UUID) -> int:
 async def get_user_profile(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Block check: don't expose profile to/from blocked users
     if user_id != current_user.id:
@@ -124,7 +124,7 @@ async def get_user_profile(
 async def search_users(
     query: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Get blocked user IDs (both directions)
     block_result = await db.execute(
@@ -168,7 +168,7 @@ async def search_users(
 async def update_username(
     body: UsernameUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Case-insensitive availability check (matches signup behavior)
     result = await db.execute(
@@ -188,7 +188,7 @@ async def update_username(
 async def update_name(
     body: NameUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     current_user.name = body.name.strip() or None
     await db.commit()
@@ -221,7 +221,7 @@ async def update_profile_picture(
     request: Request,
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Validate file type
     if file.content_type not in ALLOWED_IMAGE_TYPES:
@@ -247,7 +247,7 @@ async def update_profile_picture(
 @router.get("/notification-settings", response_model=NotificationSettingsSchema)
 async def get_notification_settings(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(NotificationSettings).where(NotificationSettings.user_id == current_user.id)
@@ -265,7 +265,7 @@ async def get_notification_settings(
 async def update_notification_settings(
     body: NotificationSettingsSchema,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(NotificationSettings).where(NotificationSettings.user_id == current_user.id)
@@ -286,7 +286,7 @@ async def update_notification_settings(
 async def update_subscription_status(
     body: SubscriptionStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     current_user.is_subscribed = body.is_subscribed
     await db.commit()
@@ -297,7 +297,7 @@ async def update_subscription_status(
 async def update_push_token(
     body: PushTokenUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     current_user.push_token = body.push_token
     current_user.push_notifications_enabled = True
@@ -308,7 +308,7 @@ async def update_push_token(
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_account(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     """
     Permanently delete the current user's account and all associated data.

@@ -5,7 +5,7 @@ from sqlalchemy import select, or_, and_, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_verified_user
 from app.models.user import User
 from app.models.block import Block
 from app.models.report import Report
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/blocks", tags=["blocks"])
 async def block_user(
     body: BlockCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     if body.blocked_id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot block yourself")
@@ -58,7 +58,7 @@ async def block_user(
 async def unblock_user(
     user_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Block).where(
@@ -77,7 +77,7 @@ async def unblock_user(
 @router.get("/")
 async def list_blocked_users(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Block, User)
@@ -101,7 +101,7 @@ async def report_user(
     request: Request,
     body: ReportCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     if body.reported_user_id == current_user.id:
         raise HTTPException(status_code=400, detail="You cannot report yourself")

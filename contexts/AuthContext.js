@@ -9,6 +9,7 @@ export const AuthProvider = ({ children }) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isNewUser, setIsNewUser] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -33,9 +34,9 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // userData from /auth/me is the profile itself
       setUser(userData);
       setProfile(userData);
+      setNeedsVerification(!userData.email_verified);
     } catch (error) {
       console.error('Error checking user:', error);
       await clearTokens();
@@ -48,6 +49,8 @@ export const AuthProvider = ({ children }) => {
     await authSignOut();
     setUser(null);
     setProfile(null);
+    setNeedsVerification(false);
+    setIsNewUser(false);
   };
 
   const refreshProfile = async () => {
@@ -56,21 +59,22 @@ export const AuthProvider = ({ children }) => {
       if (!error && userData) {
         setUser(userData);
         setProfile(userData);
+        setNeedsVerification(!userData.email_verified);
       }
     } catch (error) {
       console.error('Error refreshing profile:', error);
     }
   };
 
-  // Called after login to set user immediately (existing users → Feed)
   const setAuthUser = (userData) => {
     setUser(userData);
     setProfile(userData);
+    setNeedsVerification(!userData.email_verified);
   };
 
-  // Called after signup — flags user as new so onboarding is shown
   const signUpUser = (userData) => {
     setIsNewUser(true);
+    setNeedsVerification(!userData.email_verified);
     setUser(userData);
     setProfile(userData);
   };
@@ -85,6 +89,7 @@ export const AuthProvider = ({ children }) => {
     profile,
     loading,
     isNewUser,
+    needsVerification,
     signOut,
     refreshProfile,
     setAuthUser,

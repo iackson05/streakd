@@ -6,7 +6,7 @@ from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_verified_user
 from app.models.user import User
 from app.models.friendship import Friendship
 from app.models.block import Block
@@ -22,7 +22,7 @@ router = APIRouter(prefix="/friends", tags=["friends"])
 @router.get("/", response_model=list[FriendshipResponse])
 async def get_friendships(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Single-query join to fetch friend info (avoids N+1)
     from sqlalchemy.orm import aliased
@@ -66,7 +66,7 @@ async def get_friendships(
 @router.get("/accepted-ids")
 async def get_accepted_friend_ids(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Friendship).where(
@@ -93,7 +93,7 @@ async def send_friend_request(
     request: Request,
     body: FriendRequestCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     if body.friend_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot friend yourself")
@@ -166,7 +166,7 @@ async def send_friend_request(
 async def accept_friend_request(
     body: FriendAccept,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Friendship).where(
@@ -215,7 +215,7 @@ async def accept_friend_request(
 async def reject_friend_request(
     body: FriendReject,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Friendship).where(
@@ -236,7 +236,7 @@ async def reject_friend_request(
 async def remove_friend(
     friend_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Friendship).where(

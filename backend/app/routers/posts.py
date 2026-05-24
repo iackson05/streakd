@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 logger = logging.getLogger(__name__)
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_verified_user
 from app.models.user import User
 from app.models.goal import Goal
 from app.models.post import Post
@@ -79,7 +79,7 @@ def _post_to_response(post: Post, user: User, goal: Goal) -> PostResponse:
 @router.get("/feed", response_model=list[PostResponse])
 async def get_feed_posts(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Get accepted friend IDs
     friend_result = await db.execute(
@@ -146,7 +146,7 @@ async def get_feed_posts(
 @router.get("/user", response_model=list[PostResponse])
 async def get_user_posts(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Post, User, Goal)
@@ -162,7 +162,7 @@ async def get_user_posts(
 async def get_goal_posts(
     goal_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Verify goal exists and check authorization
     goal_result = await db.execute(select(Goal).where(Goal.id == goal_id))
@@ -219,7 +219,7 @@ async def create_post(
     caption: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     # Verify goal ownership AND that it's still active
     goal_result = await db.execute(
@@ -268,7 +268,7 @@ async def create_post(
 async def delete_post(
     post_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Post).where(Post.id == post_id, Post.user_id == current_user.id)

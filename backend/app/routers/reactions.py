@@ -6,7 +6,7 @@ from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import get_current_user
+from app.dependencies import get_verified_user
 from app.models.notification import NotificationSettings
 from app.models.user import User
 from app.models.post import Post
@@ -27,7 +27,7 @@ router = APIRouter(prefix="/reactions", tags=["reactions"])
 async def toggle_reaction(
     body: ToggleReactionRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     column_name = EMOJI_TO_COLUMN.get(body.react_emoji)
     if not column_name:
@@ -153,7 +153,7 @@ async def toggle_reaction(
 async def get_user_reactions(
     post_ids: str = Query(..., description="Comma-separated post IDs"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     try:
         ids = [uuid.UUID(pid.strip()) for pid in post_ids.split(",") if pid.strip()]
@@ -177,7 +177,7 @@ async def get_user_reactions(
 async def get_post_reactions(
     post_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_verified_user),
 ):
     result = await db.execute(
         select(Reaction).where(

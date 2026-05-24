@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     APNS_BUNDLE_ID: str = "social.streakd.app"
     APNS_USE_SANDBOX: bool = False  # Set to True only for development builds (Xcode debug)
 
+    # Resend (transactional email)
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "Streakd <no-reply@streakd.social>"
+
     # RevenueCat (secret API key for server-side subscription verification)
     REVENUECAT_API_KEY: str = ""
 

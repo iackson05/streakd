@@ -31,3 +31,11 @@ async def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 
     return user
+
+
+async def get_verified_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    if not current_user.email_verified:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email not verified")
+    return current_user

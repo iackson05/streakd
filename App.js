@@ -30,6 +30,9 @@ import Paywall from './screens/Paywall';
 import LegalText from './screens/LegalText';
 import UserProfile from './screens/UserProfile';
 import BlockedUsers from './screens/BlockedUsers';
+import EmailVerification from './screens/EmailVerification';
+import ForgotPassword from './screens/ForgotPassword';
+import ResetPassword from './screens/ResetPassword';
 
 
 const Stack = createStackNavigator();
@@ -45,7 +48,7 @@ Notifications.setNotificationHandler({
 
 // Inner component that has access to auth context
 function AppContent() {
-  const { user, loading, isNewUser } = useAuth();
+  const { user, loading, isNewUser, needsVerification } = useAuth();
   const { fetchProfileData, fetchFriendsData, fetchFeedData } = useData();
   const notificationListener = useRef();
   const responseListener = useRef();
@@ -152,41 +155,51 @@ function AppContent() {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        // key forces the navigator to remount when switching between
-        // auth and authenticated stacks, so initialRouteName is respected
-        key={user ? 'authenticated' : 'guest'}
+        key={user ? (needsVerification ? 'verification' : 'authenticated') : 'guest'}
         screenOptions={{ headerShown: false }}
-        initialRouteName={user ? (isNewUser ? 'Onboarding' : 'Feed') : 'Login'}
+        initialRouteName={
+          user
+            ? needsVerification
+              ? 'EmailVerification'
+              : isNewUser
+                ? 'Onboarding'
+                : 'Feed'
+            : 'Login'
+        }
       >
         {user ? (
-          // Authenticated screens - only shown when user is logged in
-          <>
-            <Stack.Screen name="Onboarding" component={Onboarding} />
-            <Stack.Screen
-              name="Feed"
-              component={Feed}
-              options={({ route }) => ({
-                animationEnabled: !route.params?.fromOnboarding,
-              })}
-            />
-            <Stack.Screen name="Profile" component={Profile} />
-            <Stack.Screen name="Settings" component={Settings} />
-            <Stack.Screen name="EditProfile" component={EditProfile} />
-            <Stack.Screen name="NotificationsSettings" component={NotificationsSettings} />
-            <Stack.Screen name="AddFriends" component={AddFriends} />
-            <Stack.Screen name="GoalFeed" component={GoalFeed} />
-            <Stack.Screen name="Friends" component={Friends} />
-            <Stack.Screen name="CreatePost" component={CreatePost} />
-            <Stack.Screen name="Paywall" component={Paywall} />
-            <Stack.Screen name="LegalText" component={LegalText} />
-            <Stack.Screen name="UserProfile" component={UserProfile} />
-            <Stack.Screen name="BlockedUsers" component={BlockedUsers} />
-          </>
+          needsVerification ? (
+            <Stack.Screen name="EmailVerification" component={EmailVerification} />
+          ) : (
+            <>
+              <Stack.Screen name="Onboarding" component={Onboarding} />
+              <Stack.Screen
+                name="Feed"
+                component={Feed}
+                options={({ route }) => ({
+                  animationEnabled: !route.params?.fromOnboarding,
+                })}
+              />
+              <Stack.Screen name="Profile" component={Profile} />
+              <Stack.Screen name="Settings" component={Settings} />
+              <Stack.Screen name="EditProfile" component={EditProfile} />
+              <Stack.Screen name="NotificationsSettings" component={NotificationsSettings} />
+              <Stack.Screen name="AddFriends" component={AddFriends} />
+              <Stack.Screen name="GoalFeed" component={GoalFeed} />
+              <Stack.Screen name="Friends" component={Friends} />
+              <Stack.Screen name="CreatePost" component={CreatePost} />
+              <Stack.Screen name="Paywall" component={Paywall} />
+              <Stack.Screen name="LegalText" component={LegalText} />
+              <Stack.Screen name="UserProfile" component={UserProfile} />
+              <Stack.Screen name="BlockedUsers" component={BlockedUsers} />
+            </>
+          )
         ) : (
-          // Auth screens - only shown when user is NOT logged in
           <>
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="SignUp" component={SignUpScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPassword} />
+            <Stack.Screen name="ResetPassword" component={ResetPassword} />
           </>
         )}
       </Stack.Navigator>
