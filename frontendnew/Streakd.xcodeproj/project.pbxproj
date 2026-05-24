@@ -48,6 +48,9 @@
 		EE84A62AC70492C0186259FB /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B044D99FB61A318BD07E123 /* PaywallView.swift */; };
 		EF7D25D55B53282BAEA7D809 /* ProfileViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4DEB70B44E2DF0164817BE /* ProfileViewModel.swift */; };
 		F518DA018294A9FD853E49D1 /* GoalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C177208DAAEFF0A6F612B9D3 /* GoalService.swift */; };
+		E1A2B3C4D5E6F70819200002 /* EmailVerificationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1A2B3C4D5E6F70819200001 /* EmailVerificationView.swift */; };
+		F1A2B3C4D5E6F70819200004 /* ForgotPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F70819200003 /* ForgotPasswordView.swift */; };
+		D1A2B3C4D5E6F70819200006 /* ResetPasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A2B3C4D5E6F70819200005 /* ResetPasswordView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -93,6 +96,9 @@
 		E0B677904D39FCA56C53D512 /* FeedViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewModel.swift; sourceTree = "<group>"; };
 		E91AA8D0DBD99256505219A6 /* AddFriendsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddFriendsView.swift; sourceTree = "<group>"; };
 		F1A52BEC929D15D282D23C0D /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
+		E1A2B3C4D5E6F70819200001 /* EmailVerificationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmailVerificationView.swift; sourceTree = "<group>"; };
+		F1A2B3C4D5E6F70819200003 /* ForgotPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ForgotPasswordView.swift; sourceTree = "<group>"; };
+		D1A2B3C4D5E6F70819200005 /* ResetPasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResetPasswordView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -171,8 +177,11 @@
 		882EA59CC7CF5EE2F9FE7E7B /* Auth */ = {
 			isa = PBXGroup;
 			children = (
+				E1A2B3C4D5E6F70819200001 /* EmailVerificationView.swift */,
+				F1A2B3C4D5E6F70819200003 /* ForgotPasswordView.swift */,
 				AEC1B24660DD1272E9346E34 /* LoginView.swift */,
 				778A85617BA6E8920D9BD11D /* OnboardingView.swift */,
+				D1A2B3C4D5E6F70819200005 /* ResetPasswordView.swift */,
 				D264156708B4854F268729E5 /* SignUpView.swift */,
 			);
 			path = Auth;
@@ -327,7 +336,10 @@
 				668AA360CD9C32BA60970DCD /* ContentView.swift in Sources */,
 				E6B43FB4890351FDF0E16310 /* CreateGoalView.swift in Sources */,
 				4F7D70F65E0075EC5B7BAE2D /* CreatePostView.swift in Sources */,
+				E1A2B3C4D5E6F70819200002 /* EmailVerificationView.swift in Sources */,
 				3260719C5AF04D7DC8C54D16 /* EditProfileView.swift in Sources */,
+				F1A2B3C4D5E6F70819200004 /* ForgotPasswordView.swift in Sources */,
+				D1A2B3C4D5E6F70819200006 /* ResetPasswordView.swift in Sources */,
 				A17BD21173685FA6143868A4 /* FeedView.swift in Sources */,
 				9B9BBCC256692E193E2049E1 /* FeedViewModel.swift in Sources */,
 				8F6AA3BA49959D94413C6778 /* FormatTimestamp.swift in Sources */,

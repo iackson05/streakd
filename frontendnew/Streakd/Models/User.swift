@@ -9,6 +9,7 @@ struct User: Codable, Identifiable, Equatable {
     let pushToken: String?
     let pushNotificationsEnabled: Bool?
     let isSubscribed: Bool
+    let emailVerified: Bool
     let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -17,6 +18,7 @@ struct User: Codable, Identifiable, Equatable {
         case pushToken = "push_token"
         case pushNotificationsEnabled = "push_notifications_enabled"
         case isSubscribed = "is_subscribed"
+        case emailVerified = "email_verified"
         case createdAt = "created_at"
     }
 }

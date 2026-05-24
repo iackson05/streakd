@@ -80,7 +80,15 @@ struct LoginView: View {
                         .buttonStyle(BrandButtonStyle())
                         .disabled(isLoading || email.isEmpty || password.isEmpty)
 
-                        // Sign Up Link
+                        NavigationLink {
+                            ForgotPasswordView()
+                        } label: {
+                            Text("Forgot password?")
+                                .font(.footnote)
+                                .foregroundStyle(.white.opacity(0.4))
+                        }
+                        .padding(.top, 4)
+
                         HStack(spacing: 4) {
                             Text("Don't have an account?")
                                 .foregroundStyle(.white.opacity(0.4))

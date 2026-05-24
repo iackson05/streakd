@@ -7,7 +7,6 @@ struct ContentView: View {
     var body: some View {
         Group {
             if auth.isLoading {
-                // Splash / loading
                 ZStack {
                     Color.black.ignoresSafeArea()
                     VStack(spacing: 16) {
@@ -20,7 +19,9 @@ struct ContentView: View {
                     }
                 }
             } else if auth.isLoggedIn {
-                if auth.isNewUser {
+                if auth.needsVerification {
+                    EmailVerificationView()
+                } else if auth.isNewUser {
                     OnboardingView()
                 } else {
                     FeedView()

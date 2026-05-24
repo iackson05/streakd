@@ -29,3 +29,22 @@ struct RefreshRequest: Encodable {
         case refreshToken = "refresh_token"
     }
 }
+
+struct VerifyEmailRequest: Encodable {
+    let code: String
+}
+
+struct ForgotPasswordRequest: Encodable {
+    let email: String
+}
+
+struct ResetPasswordRequest: Encodable {
+    let email: String
+    let code: String
+    let newPassword: String
+
+    enum CodingKeys: String, CodingKey {
+        case email, code
+        case newPassword = "new_password"
+    }
+}

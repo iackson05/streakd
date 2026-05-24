@@ -4,7 +4,7 @@ import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 // (Project Settings > API Keys — starts with 'appl_')
 const RC_PUBLIC_SDK_KEY = __DEV__
   ? 'test_EkghhGjfxyrfRexxAkNmvEynCXW'
-  : 'test_EkghhGjfxyrfRexxAkNmvEynCXW'; // ← REPLACE this with your 'appl_...' production key
+  : 'appl_uOTTfnZLoTckGzDBxCdwUyKBcRp'; // ← REPLACE this with your 'appl_...' production key
 
 // Entitlement identifier — must match exactly what's set in RevenueCat dashboard
 const STREAKD_PLUS_ENTITLEMENT = 'streakd+';

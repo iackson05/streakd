@@ -1,14 +1,13 @@
 import Foundation
 import SwiftUI
 
-/// Manages authentication state across the app.
-/// Equivalent to AuthContext.js in the React Native app.
 @MainActor
 @Observable
 final class AuthViewModel {
     var user: User?
     var isLoading = true
     var isNewUser = false
+    var needsVerification: Bool { user?.emailVerified == false }
 
     var isLoggedIn: Bool { user != nil }
 
@@ -55,6 +54,17 @@ final class AuthViewModel {
         if let updated = try? await AuthService.getCurrentUser() {
             user = updated
         }
+    }
+
+    // MARK: - Email Verification
+
+    func verifyEmail(code: String) async throws {
+        try await AuthService.verifyEmail(code: code)
+        await refreshProfile()
+    }
+
+    func resendVerification() async throws {
+        try await AuthService.resendVerification()
     }
 
     // MARK: - Onboarding

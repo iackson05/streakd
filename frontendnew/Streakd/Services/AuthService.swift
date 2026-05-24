@@ -53,6 +53,40 @@ enum AuthService {
         return try? await getCurrentUser()
     }
 
+    static func verifyEmail(code: String) async throws {
+        try await api.postVoid("/auth/verify-email", body: VerifyEmailRequest(code: code))
+    }
+
+    static func resendVerification() async throws {
+        let body: [String: String] = [:]
+        let bodyData = try JSONEncoder().encode(body)
+        let (data, response) = try await api.fetch(path: "/auth/resend-verification", method: "POST", body: bodyData)
+        guard (200...299).contains(response.statusCode) else {
+            let detail = parseDetail(data)
+            throw APIError.httpError(statusCode: response.statusCode, detail: detail ?? "Failed to resend code")
+        }
+    }
+
+    static func forgotPassword(email: String) async throws {
+        let body = ForgotPasswordRequest(email: email)
+        let bodyData = try JSONEncoder().encode(body)
+        let (data, response) = try await api.fetch(path: "/auth/forgot-password", method: "POST", body: bodyData)
+        guard (200...299).contains(response.statusCode) else {
+            let detail = parseDetail(data)
+            throw APIError.httpError(statusCode: response.statusCode, detail: detail ?? "Request failed")
+        }
+    }
+
+    static func resetPassword(email: String, code: String, newPassword: String) async throws {
+        let body = ResetPasswordRequest(email: email, code: code, newPassword: newPassword)
+        let bodyData = try JSONEncoder().encode(body)
+        let (data, response) = try await api.fetch(path: "/auth/reset-password", method: "POST", body: bodyData)
+        guard (200...299).contains(response.statusCode) else {
+            let detail = parseDetail(data)
+            throw APIError.httpError(statusCode: response.statusCode, detail: detail ?? "Reset failed")
+        }
+    }
+
     static func deleteAccount() async throws {
         try await api.delete("/users/me")
         api.clearTokens()
